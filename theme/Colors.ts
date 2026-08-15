@@ -1,0 +1,53 @@
+/**
+ * CaféGo Color Palette - Café-themed warm design system
+ * Primary: Espresso Brown, Accent: Caramel Gold
+ */
+
+export const Colors = {
+    light: {
+        text: '#1C1008',
+        background: '#FBF8F4',
+        tint: '#B5451B',
+        icon: '#7C6C5E',
+        tabIconDefault: '#7C6C5E',
+        tabIconSelected: '#B5451B',
+        primary: '#B5451B',
+        primaryLight: '#E8825A',
+        primaryGradientStart: '#B5451B',
+        primaryGradientEnd: '#E8825A',
+        accent: '#F5A623',
+        secondary: '#F5EDE6',
+        border: '#E8DDD5',
+        card: '#FFFFFF',
+        error: '#E74C3C',
+        success: '#27AE60',
+        warning: '#F39C12',
+        tableEmpty: '#ABD3F9',
+        tableServing: '#FFACAC',
+        tableBooked: '#D39FE9',
+        muted: '#A09080',
+    },
+    dark: {
+        text: '#F0EAE4',
+        background: '#1A1512',
+        tint: '#E8825A',
+        icon: '#A09080',
+        tabIconDefault: '#A09080',
+        tabIconSelected: '#E8825A',
+        primary: '#E8825A',
+        primaryLight: '#F5A88A',
+        primaryGradientStart: '#B5451B',
+        primaryGradientEnd: '#E8825A',
+        accent: '#F5A623',
+        secondary: '#2A2320',
+        border: '#3D3028',
+        card: '#2A2320',
+        error: '#EF4444',
+        success: '#22C55E',
+        warning: '#EAB308',
+        tableEmpty: '#3A6FA0',
+        tableServing: '#A03030',
+        tableBooked: '#7040A0',
+        muted: '#7C6C5E',
+    },
+};
