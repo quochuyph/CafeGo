@@ -25,7 +25,7 @@
   "submit": {
     "production": {
       "android": {
-        "serviceAccountKeyPath": "./cafego-5d642-d8e20c5cd008.json",
+        "serviceAccountKeyPath": "./cafego-5d642-4a6c3cc0b0d3.json",
         "track": "internal"
       }
     }
