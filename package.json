@@ -1,14 +1,27 @@
 {
-  "name": "qlcafe",
+  "name": "cafego",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "8.0.0",
+  "description": "CaféGo – Ứng dụng quản lý quán cà phê (POS) đa nền tảng xây dựng bằng React Native, Expo & Firebase.",
+  "author": "Quoc Huy <quochuyphbrvt@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/quochuyph/CafeGo.git"
+  },
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "lint:fix": "expo lint --fix",
+    "typecheck": "tsc --noEmit",
+    "doctor": "npx expo-doctor",
+    "build:preview": "eas build -p android --profile preview",
+    "build:prod": "eas build -p android --profile production",
+    "submit:android": "eas submit -p android --profile production",
+    "update": "eas update"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

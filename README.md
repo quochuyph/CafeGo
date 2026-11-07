@@ -1,223 +1,311 @@
 <div align="center">
 
-# ☕ CaféGo - Ứng Dụng Quản Lý Quán Café Thông Minh
+<img src="assets/images/icon.png" alt="CaféGo logo" width="120" />
 
-**Giải pháp quản lý bàn, order món, in bill và kiểm soát doanh thu chuyên nghiệp dành cho quán cà phê, trà sữa & nhà hàng.**
+# CaféGo
 
-[![React Native](https://img.shields.io/badge/React_Native-0.81.5-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev/)
-[![Expo SDK](https://img.shields.io/badge/Expo_SDK-54.0.36-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Firebase](https://img.shields.io/badge/Firebase-Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![SQLite](https://img.shields.io/badge/SQLite-Offline_First-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://docs.expo.dev/versions/latest/sdk/sqlite/)
-[![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-4E9A06?style=for-the-badge)](https://expo.dev/)
+### Ứng dụng quản lý quán cà phê (POS) đa nền tảng cho chủ quán Việt
+
+Quản lý bàn, gọi món, thanh toán, in hóa đơn và theo dõi doanh thu — tất cả trong một ứng dụng di động, hoạt động **offline-first** và đồng bộ đám mây với Firebase.
+
+[![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-000020?logo=expo&logoColor=white)](https://expo.dev)
+[![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?logo=react&logoColor=black)](https://reactnative.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Firebase](https://img.shields.io/badge/Firebase-12-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
+[![SQLite](https://img.shields.io/badge/SQLite-offline-003B57?logo=sqlite&logoColor=white)](https://docs.expo.dev/versions/latest/sdk/sqlite/)
+[![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS-lightgrey)](#)
+[![CI](https://github.com/quochuyph/CafeGo/actions/workflows/ci.yml/badge.svg)](https://github.com/quochuyph/CafeGo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+[Tính năng](#-tính-năng-nổi-bật) •
+[Công nghệ](#-công-nghệ-sử-dụng) •
+[Kiến trúc](#-kiến-trúc-hệ-thống) •
+[Cài đặt](#-cài-đặt--chạy-dự-án) •
+[Build & Phát hành](#-build--phát-hành) •
+[Lộ trình](#-lộ-trình-phát-triển)
 
 </div>
 
 ---
 
-## 📌 Giới Thiệu (Overview)
+## 📖 Giới thiệu
 
-**CaféGo** là ứng dụng di động đa nền tảng được phát triển trên nền tảng **React Native & Expo**, hướng tới việc tối ưu hóa quy trình vận hành và phục vụ tại các quán cà phê, quán trà sữa và nhà hàng vừa và nhỏ. 
+**CaféGo** là ứng dụng di động giúp các quán cà phê vừa và nhỏ số hoá toàn bộ quy trình bán hàng: từ sơ đồ bàn, gọi món, tính tiền cho đến báo cáo doanh thu cuối ngày. Ứng dụng được thiết kế cho nhân viên thao tác nhanh trên điện thoại, không cần đầu tư máy POS đắt tiền.
 
-Với kiến trúc dữ liệu lai (**Hybrid Architecture**) kết hợp giữa cơ sở dữ liệu cục bộ **SQLite** (Offline-First, tốc độ phản hồi tức thì) và **Cloud Firestore** (Đồng bộ đa thiết bị, an toàn dữ liệu), CaféGo mang đến trải nghiệm mượt mà, ổn định ngay cả trong điều kiện mạng yếu hoặc gián đoạn.
+**Điểm khác biệt:**
 
----
+- ⚡ **Offline-first** — dữ liệu được lưu cục bộ bằng SQLite nên thao tác tức thì, vẫn dùng được khi mạng chập chờn.
+- ☁️ **Đồng bộ đám mây** — mọi thay đổi được ghi lên Cloud Firestore và tự động khôi phục khi đăng nhập trên thiết bị mới.
+- 🔐 **Bảo mật** — mật khẩu băm bằng `bcrypt`, xác minh email và khôi phục mật khẩu bằng mã OTP.
+- 🚀 **Cập nhật OTA** — phát hành bản vá ngay lập tức qua EAS Update, không cần chờ duyệt store.
 
-## ✨ Tính Năng Nổi Bật (Key Features)
+## 📱 Ảnh chụp màn hình
 
-### 🪑 1. Quản Lý Sơ Đồ Bàn (Table Management)
-- **Trực quan hóa trạng thái bàn**: Phân biệt rõ ràng theo mã màu (Bàn Trống, Đang phục vụ, Đã đặt trước).
-- **Thao tác nhanh**: Thêm bàn mới, chỉnh sửa thông tin bàn, xóa bàn dễ dàng.
-- **Xem chi tiết bàn**: Tra cứu nhanh danh sách món khách đang gọi, thời gian khách vào và tổng tiền tạm tính.
+> Thêm ảnh chụp vào thư mục [`docs/screenshots/`](docs/screenshots) với đúng tên file bên dưới để hiển thị.
 
-### 📋 2. Quản Lý Thực Đơn & Nhóm Món (Menu & Categories)
-- **Phân loại nhóm món**: Phân chia thực đơn theo từng danh mục (Cà phê, Trà hoa quả, Sinh tố, Đồ ăn vặt,...).
-- **Thêm/Sửa món linh hoạt**: Cập nhật tên món, đơn vị tính (Ly, Chai, Đĩa...), đơn giá và nhóm tương ứng.
-- **Tìm kiếm thông minh**: Tìm kiếm món ăn/đồ uống theo tên hoặc danh mục nhanh chóng.
+| Chào mừng | Đăng nhập | Tổng quan | Sơ đồ bàn |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/welcome.png" width="180" /> | <img src="docs/screenshots/login.png" width="180" /> | <img src="docs/screenshots/dashboard.png" width="180" /> | <img src="docs/screenshots/tables.png" width="180" /> |
+| **Gọi món** | **Thanh toán** | **Hóa đơn & doanh thu** | **Thực đơn** |
+| <img src="docs/screenshots/order.png" width="180" /> | <img src="docs/screenshots/payment.png" width="180" /> | <img src="docs/screenshots/invoices.png" width="180" /> | <img src="docs/screenshots/menu.png" width="180" /> |
 
-### ⚡ 3. Order & Gọi Món Tại Bàn (Smart Ordering)
-- Chọn món và thêm trực tiếp vào hóa đơn của từng bàn.
-- Tùy chỉnh tăng/giảm số lượng món, ghi chú yêu cầu của khách (ít đá, ít đường,...).
-- Tự động tính toán tổng số tiền theo thời gian thực.
+## ✨ Tính năng nổi bật
 
-### 💳 4. Thanh Toán & In Hóa Đơn (Billing & Thermal Printing)
-- **Thanh toán chính xác**: Hỗ trợ nhập tiền khách đưa, tự động tính tiền thối thừa.
-- **In hóa đơn chuyên nghiệp**: Tích hợp module in bill (`expo-print`) xuất hóa đơn chuẩn máy in bill nhiệt khổ K57/K80 hoặc lưu/chia sẻ dưới định dạng PDF.
-- **Hoàn tất hóa đơn**: Tự động giải phóng bàn về trạng thái "Trống" sau khi thanh toán.
+### 🔐 Xác thực & Tài khoản
+- Đăng ký / đăng nhập bằng username, mật khẩu được băm `bcrypt` trước khi lưu.
+- Xác minh email và **quên mật khẩu bằng mã OTP** gửi qua email (có đếm ngược gửi lại).
+- Chỉnh sửa username, tên hiển thị, email (xác minh lại OTP), đổi mật khẩu.
+- Đăng xuất an toàn: xoá toàn bộ dữ liệu cục bộ của người dùng trên thiết bị.
 
-### 📊 5. Quản Lý Hóa Đơn & Doanh Thu (Invoices & History)
-- Xem lại lịch sử tất cả các hóa đơn đã thanh toán theo ngày, giờ.
-- Tra cứu chi tiết từng hóa đơn cũ kèm danh sách các món đã phục vụ.
+### 🪑 Quản lý bàn
+- Sơ đồ bàn trực quan, tìm kiếm nhanh theo tên.
+- Thống kê trạng thái theo thời gian thực: **Trống / Đặt trước / Đang phục vụ**.
+- Đặt bàn, huỷ đặt bàn, thêm / sửa / xoá bàn.
 
-### 🔄 6. Đồng Bộ Dữ Liệu Lai (Hybrid Sync: SQLite + Firestore)
-- **Offline-First**: Mọi thao tác ghi/đọc dữ liệu bán hàng diễn ra siêu tốc trên SQLite nội bộ máy.
-- **Cloud Backup & Sync**: Tự động đồng bộ hai chiều lên Firebase Firestore theo User ID, đảm bảo không bao giờ bị mất dữ liệu khi đổi thiết bị.
+### 🧾 Gọi món & Thanh toán
+- Tìm kiếm món theo tên, chọn số lượng, xem danh sách món đã gọi và tạm tính.
+- Màn hình thanh toán: nhập tiền khách đưa, **tự động tính tiền thối lại**.
+- **In hóa đơn** (`expo-print`) hoặc thanh toán kèm in chỉ với một chạm.
 
-### 🔐 7. Xác Thực & Bảo Mật (Authentication & Security)
-- Đăng ký / Đăng nhập tài khoản quản lý.
-- Mã hóa bảo mật mật khẩu với `bcryptjs`.
-- **Khôi phục mật khẩu qua Email**: Tích hợp gửi mã OTP xác thực qua Email an toàn, tiện lợi.
+### 🍽️ Quản lý thực đơn
+- CRUD **nhóm món** (Cà phê, Trà, Sinh tố, …).
+- CRUD **món** với đơn giá, đơn vị tính, định dạng tiền tệ VND.
 
-### 🎨 8. Giao Diện Hiện Đại & Chuẩn UX/UI (Modern Theme)
-- Bảng màu lấy cảm hứng từ cà phê ấm cúng (**Espresso Brown** `#B5451B` & **Caramel Gold** `#F5A623`).
-- Hỗ trợ đầy đủ chế độ **Light Mode** & **Dark Mode** (`VSDarkTheme`).
-- Hiệu ứng chuyển động mượt mà với `react-native-reanimated` và phản hồi xúc giác `expo-haptics`.
+### 📊 Hóa đơn & Doanh thu
+- Danh sách hóa đơn theo ngày, trạng thái thanh toán.
+- Tổng hợp **doanh thu đã thanh toán trong ngày**.
 
----
+### 🎨 Trải nghiệm
+- Giao diện **Light / Dark mode** tự động theo hệ thống, font Poppins.
+- Hỗ trợ New Architecture của React Native, edge-to-edge trên Android.
 
-## 🛠️ Công Nghệ Sử Dụng (Tech Stack)
+## 🛠 Công nghệ sử dụng
 
-| Hạng mục | Công nghệ / Thư viện |
-|---|---|
-| **Core Framework** | React Native `0.81.5`, React `19.1.0` |
-| **App Platform** | Expo SDK `54.0.36` (New Architecture Enabled) |
-| **Navigation & Routing** | Expo Router `~6.0.24` (File-based Routing) |
-| **Ngôn ngữ** | TypeScript `~5.9.2` |
-| **Local Database** | `expo-sqlite` (SQLite engine) & AsyncStorage |
-| **Cloud Database / Auth** | Firebase Firestore & Firebase Auth `^12.0.0` |
-| **UI & Icons** | `@expo/vector-icons`, `react-native-reanimated`, `expo-image`, `expo-blur` |
-| **Hóa đơn & In ấn** | `expo-print`, `expo-sharing` |
+| Hạng mục | Công nghệ |
+| --- | --- |
+| **Framework** | [React Native 0.81](https://reactnative.dev) · [Expo SDK 54](https://expo.dev) · New Architecture |
+| **Ngôn ngữ** | TypeScript (strict mode) |
+| **Điều hướng** | [Expo Router 6](https://docs.expo.dev/router/introduction/) (file-based routing, typed routes) |
+| **Lưu trữ cục bộ** | [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/) · AsyncStorage |
+| **Backend / Cloud** | Firebase Authentication · Cloud Firestore · Cloud Functions |
+| **Dịch vụ OTP** | REST API (Node.js, triển khai trên Vercel) gọi qua `axios` |
 | **Bảo mật** | `bcryptjs`, `expo-crypto` |
-| **Build & Deploy** | EAS Build (Expo Application Services) |
+| **Tiện ích** | `expo-print`, `expo-sharing`, `moment`, `numeral` |
+| **UI / Animation** | `react-native-reanimated`, `react-native-gesture-handler`, `@expo/vector-icons` |
+| **DevOps** | EAS Build · EAS Submit · EAS Update (OTA) · GitHub Actions |
+| **Chất lượng code** | ESLint (`eslint-config-expo`), TypeScript type-check, EditorConfig |
 
----
+## 🏗 Kiến trúc hệ thống
 
-## 📁 Cấu Trúc Thư Mục (Project Structure)
+```mermaid
+flowchart LR
+    subgraph Device["📱 Thiết bị (React Native / Expo)"]
+        UI["Màn hình - Expo Router"] --> SQLite[("SQLite<br/>qlcafe.db")]
+        UI --> AS[("AsyncStorage<br/>phiên đăng nhập")]
+    end
 
-```text
-QLCafe-main/
-├── app/                          # File-based routing (Màn hình ứng dụng)
-│   ├── _layout.tsx               # Root Layout, Theme Provider & SQLite Provider
-│   ├── index.tsx                 # Màn hình Onboarding / Welcome
-│   ├── authscreen.tsx            # Màn hình Đăng nhập / Đăng ký
-│   ├── EmailVerificationScreen.tsx # Xác thực Email OTP
-│   ├── RequestResetScreen.tsx    # Gửi yêu cầu quên mật khẩu
-│   ├── ConfirmResetScreen.tsx    # Đặt lại mật khẩu mới
-│   ├── dashboard.tsx             # Trang chủ Quản lý chính
-│   ├── table.tsx                 # Sơ đồ và danh sách bàn
-│   ├── themban.tsx               # Thêm bàn mới
-│   ├── quanlyban.tsx             # Quản trị danh sách bàn
-│   ├── chitietban.tsx            # Chi tiết bàn & gọi món
-│   ├── menu.tsx                  # Danh sách thực đơn
-│   ├── themmon.tsx               # Thêm món mới
-│   ├── quanlynhommon.tsx         # Quản trị danh mục nhóm món
-│   ├── themnhommon.tsx           # Thêm danh mục món
-│   ├── payment.tsx               # Thanh toán & In hóa đơn
-│   ├── quanlyhoadon.tsx          # Danh sách lịch sử hóa đơn
-│   ├── hoadonban.tsx             # Chi tiết từng hóa đơn
-│   ├── account.tsx               # Quản lý tài khoản cá nhân
-│   └── chinhsuaaccount.tsx       # Chỉnh sửa thông tin tài khoản
-├── assets/                       # Tài nguyên hình ảnh, icons, fonts
-│   ├── dashboard/                # Icons chức năng Dashboard
-│   ├── home/                     # Ảnh màn hình chào mừng
-│   ├── fonts/                    # Bộ font Poppins tùy chỉnh
-│   └── images/                   # App icon, adaptive icon, splash screen
-├── components/                   # Components tái sử dụng
-│   ├── ui/                       # Button, Card, Input, TabBar...
-│   ├── Payment/                  # PaymentModal
-│   ├── ThemedText.tsx            # Text theo Theme tự động
-│   └── ThemedView.tsx            # View theo Theme tự động
-├── theme/                        # Hệ thống màu sắc & Dark/Light Theme
-│   ├── Colors.ts                 # Bảng mã màu chủ đạo
-│   └── VSDarkTheme.ts            # Cấu hình Dark Theme
-├── firebaseConfig.demo.js        # Mẫu cấu hình kết nối Firebase
-├── eas.json                      # Cấu hình EAS Build (Android/iOS)
-├── app.json                      # Cấu hình Expo App Metadata
-├── package.json                  # Dependencies và scripts
-└── README.md                     # Tài liệu hướng dẫn dự án
+    UI -- "ghi / đọc" --> FS[("Cloud Firestore")]
+    FS -- "đồng bộ khi khởi động" --> SQLite
+    UI -- "send-otp / verify-otp" --> OTP["OTP Service<br/>(Vercel)"]
+    OTP -- "email" --> Mail["📧 Người dùng"]
+    UI -. "OTA update" .-> EAS["EAS Update"]
 ```
 
----
+**Luồng dữ liệu offline-first:**
 
-## 🚀 Hướng Dẫn Cài Đặt & Chạy Ứng Dụng (Getting Started)
+1. Khi mở ứng dụng, `dashboard` kéo dữ liệu của người dùng từ Firestore và ghi vào SQLite.
+2. Các màn hình đọc dữ liệu từ SQLite để hiển thị tức thì.
+3. Mỗi thao tác tạo / sửa / xoá được ghi đồng thời vào SQLite và Firestore.
+4. Khi đăng xuất, dữ liệu cục bộ của người dùng được xoá khỏi thiết bị.
 
-### 1. Yêu cầu môi trường
-- **Node.js**: Phiên bản `>= 18.x` (khuyến nghị `20.x` LTS)
-- **npm** hoặc **yarn**
-- Ứng dụng **Expo Go** trên điện thoại (Android/iOS) hoặc Android Studio / Xcode Emulator
+### Mô hình dữ liệu
 
-### 2. Cài đặt các gói phụ thuộc
-Clone repository về máy và cài đặt dependencies:
+```mermaid
+erDiagram
+    BAN ||--o{ HOADON : "có"
+    HOADON ||--|{ CHITIETHD : "gồm"
+    NHOMMON ||--o{ MENU : "chứa"
+    MENU ||--o{ CHITIETHD : "được gọi trong"
+
+    BAN {
+        int MaBan PK
+        string TenBan
+        string TrangThai
+        string userId
+    }
+    HOADON {
+        int MaHoaDon PK
+        int MaBan FK
+        datetime GioDen
+        int TongTien
+        int GiamGia
+        int TrangThai
+        string userId
+    }
+    CHITIETHD {
+        int MaChiTietHD PK
+        int MaHoaDon FK
+        int MaMon FK
+        int SoLuong
+        int Gia
+        string userId
+    }
+    NHOMMON {
+        int MaLoai PK
+        string TenLoai
+        string userId
+    }
+    MENU {
+        int MaMon PK
+        string TenMon
+        int MaLoai FK
+        int DonGia
+        string DVT
+        string userId
+    }
+```
+
+> Mỗi bản ghi gắn với `userId` — dữ liệu của từng chủ quán được cô lập hoàn toàn (multi-tenant).
+
+## 📂 Cấu trúc dự án
+
+```text
+CafeGo/
+├── .github/                  # CI workflow, issue & PR templates
+├── assets/                   # Ảnh, icon, font (Poppins)
+├── credentials/              # 🔒 Service account Google Play (gitignored)
+├── docs/screenshots/         # Ảnh chụp màn hình cho README
+├── src/
+│   ├── app/                  # Expo Router – mỗi file là một màn hình
+│   │   ├── _layout.tsx       # Root layout: theme, font, SQLite provider, stack
+│   │   ├── index.tsx         # Màn hình chào mừng
+│   │   ├── dashboard.tsx     # Tổng quan + đồng bộ Firestore → SQLite
+│   │   ├── (auth)/           # Đăng nhập, đăng ký, OTP, quên mật khẩu
+│   │   ├── (account)/        # Thông tin & chỉnh sửa tài khoản
+│   │   ├── (orders)/         # Sơ đồ bàn, gọi món, thanh toán, hóa đơn
+│   │   └── (management)/     # Quản lý bàn, nhóm món, thực đơn
+│   ├── components/           # Component tái sử dụng
+│   │   ├── ui/               # Button, Card, Input
+│   │   └── payment/          # PaymentModal
+│   ├── config/               # env.ts (biến môi trường), firebase.ts
+│   ├── constants/            # Hằng số ứng dụng (tên, phiên bản, DB)
+│   ├── database/             # Schema & khởi tạo SQLite
+│   ├── hooks/                # Custom hooks (theme, auth storage)
+│   └── theme/                # Bảng màu, font, Light/Dark theme
+├── .env.example              # Mẫu biến môi trường
+├── app.json                  # Cấu hình Expo
+├── eas.json                  # Cấu hình EAS Build / Submit
+└── package.json
+```
+
+> Thư mục trong ngoặc như `(auth)` là [route group](https://docs.expo.dev/router/advanced/shared-routes/) của Expo Router — chỉ dùng để tổ chức code, **không** ảnh hưởng tới URL.
+
+## 🚀 Cài đặt & Chạy dự án
+
+### Yêu cầu
+
+- [Node.js](https://nodejs.org) ≥ 20 LTS và npm
+- Ứng dụng [Expo Go](https://expo.dev/go) trên điện thoại, hoặc Android Studio / Xcode (emulator)
+- Một project [Firebase](https://console.firebase.google.com) đã bật **Cloud Firestore**
+
+### 1. Clone & cài đặt
 
 ```bash
-# Clone repository
-git clone https://github.com/quochuyph207/QLCafe.git
-cd QLCafe-main
-
-# Cài đặt thư viện
+git clone https://github.com/quochuyph/CafeGo.git
+cd CafeGo
 npm install
 ```
 
-### 3. Cấu hình Firebase
-Tạo file `firebaseConfig.js` tại thư mục gốc dựa trên file mẫu `firebaseConfig.demo.js`:
-
-```javascript
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
-  measurementId: "YOUR_MEASUREMENT_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const firestore = getFirestore(app);
-
-export { auth, firestore };
-```
-
-### 4. Khởi chạy ứng dụng (Development)
+### 2. Cấu hình biến môi trường
 
 ```bash
-# Khởi động Metro Bundler
-npx expo start
-
-# Hoặc mở trực tiếp trên thiết bị Android
-npx expo start --android
-
-# Hoặc mở trực tiếp trên thiết bị iOS Simulator
-npx expo start --ios
+cp .env.example .env
 ```
 
-Quét mã QR hiển thị trên terminal bằng ứng dụng **Expo Go** trên điện thoại để trải nghiệm.
+Mở `.env` và điền thông tin Firebase (Project settings → General → Your apps → Web app) cùng URL dịch vụ OTP:
 
----
+```dotenv
+EXPO_PUBLIC_FIREBASE_API_KEY=your-api-key
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+# ...
+EXPO_PUBLIC_ACCOUNT_OTP_API_URL=https://your-account-otp-service.example.com
+EXPO_PUBLIC_PASSWORD_RESET_API_URL=https://your-password-reset-service.example.com
+```
 
-## 📦 Hướng Dẫn Đóng Gói / Build Ứng Dụng (EAS Build)
+> [!IMPORTANT]
+> Không bao giờ commit file `.env` hay thư mục `credentials/`. Cả hai đã được thêm vào `.gitignore`.
 
-Dự án đã được cấu hình sẵn sàng với **Expo Application Services (EAS Build)**:
+### 3. Chạy ứng dụng
 
 ```bash
-# 1. Cài đặt EAS CLI toàn cục nếu chưa có
+npm start          # Khởi động Metro bundler, quét QR bằng Expo Go
+npm run android    # Mở trên Android emulator / thiết bị
+npm run ios        # Mở trên iOS simulator (macOS)
+```
+
+## 📜 Scripts
+
+| Lệnh | Mô tả |
+| --- | --- |
+| `npm start` | Khởi động Metro bundler |
+| `npm run android` / `ios` / `web` | Chạy trên nền tảng tương ứng |
+| `npm run lint` / `lint:fix` | Kiểm tra / tự sửa lỗi ESLint |
+| `npm run typecheck` | Kiểm tra kiểu TypeScript |
+| `npm run doctor` | Kiểm tra sức khoẻ dự án Expo |
+| `npm run build:preview` | Build APK nội bộ để test |
+| `npm run build:prod` | Build AAB production cho Google Play |
+| `npm run submit:android` | Đẩy bản build lên Google Play (internal track) |
+| `npm run update` | Phát hành bản cập nhật OTA qua EAS Update |
+
+## 📦 Build & Phát hành
+
+Dự án sử dụng [EAS](https://docs.expo.dev/eas/) với 3 profile trong [`eas.json`](eas.json): `development`, `preview`, `production`.
+
+```bash
 npm install -g eas-cli
-
-# 2. Đăng nhập tài khoản Expo
 eas login
 
-# 3. Build file APK dùng thử cho Android
-eas build -p android --profile preview
+# Khai báo biến môi trường trên EAS (vì .env không được upload khi build)
+eas env:create --environment production --name EXPO_PUBLIC_FIREBASE_API_KEY --value "..." --visibility plaintext
+# ...lặp lại cho các biến trong .env.example (và cho environment preview nếu cần)
 
-# 4. Build bản Production phát hành lên Google Play Store
-eas build -p android --profile production
+npm run build:preview   # APK để cài thử
+npm run build:prod      # AAB cho Google Play
+npm run submit:android  # Cần file credentials/google-play-service-account.json
 ```
 
----
+## 🗺 Lộ trình phát triển
 
-## 👨‍💻 Tác Giả (Author)
+- [x] Quản lý bàn, thực đơn, gọi món, thanh toán
+- [x] In hóa đơn
+- [x] Đồng bộ Firestore ↔ SQLite, khôi phục dữ liệu trên thiết bị mới
+- [x] Xác minh email & quên mật khẩu bằng OTP
+- [ ] Báo cáo doanh thu theo tuần / tháng kèm biểu đồ
+- [ ] Thanh toán chuyển khoản bằng mã VietQR
+- [ ] Phân quyền nhiều nhân viên (chủ quán / thu ngân / phục vụ)
+- [ ] Quản lý kho nguyên liệu
+- [ ] Unit test & E2E test (Jest, Maestro)
 
-- **Developer**: Quốc Huy ([@quochuyph207](https://quochuyph.id.vn))
-- **Email**: `quochuyphbrvt@gmail.com`
-- **Project**: CaféGo Mobile App (v8.0.0)
+## 🤝 Đóng góp
+
+Mọi đóng góp đều được hoan nghênh! Vui lòng đọc [CONTRIBUTING.md](CONTRIBUTING.md) trước khi tạo Pull Request. Lịch sử thay đổi xem tại [CHANGELOG.md](CHANGELOG.md).
+
+## 📄 Giấy phép
+
+Phân phối theo giấy phép **MIT**. Xem chi tiết tại [LICENSE](LICENSE).
+
+## 👨‍💻 Tác giả
+
+**Quốc Huy**
+
+- 🌐 Website: [quochuyph.id.vn](https://quochuyph.id.vn)
+- 🐙 GitHub: [@quochuyph](https://github.com/quochuyph)
+- 📧 Email: quochuyphbrvt@gmail.com
 
 ---
 
 <div align="center">
   <sub>Được phát triển với niềm đam mê công nghệ và cà phê ☕❤️</sub>
+  <br />
+  <sub>Nếu thấy dự án hữu ích, hãy tặng một ⭐ để ủng hộ nhé!</sub>
 </div>
