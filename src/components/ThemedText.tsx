@@ -15,20 +15,51 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const defaultColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const mutedColor = useThemeColor({}, 'muted');
+  const primaryColor = useThemeColor({}, 'primary');
+
+  const typeStyle =
+    type === 'title'
+      ? styles.title
+      : type === 'defaultSemiBold'
+        ? styles.defaultSemiBold
+        : type === 'subtitle'
+          ? styles.subtitle
+          : type === 'link'
+            ? styles.link
+            : type === 'caption'
+              ? styles.caption
+              : type === 'small'
+                ? styles.small
+                : styles.default;
+
+  const baseColor =
+    lightColor || darkColor
+      ? defaultColor
+      : type === 'link'
+        ? primaryColor
+        : type === 'caption' || type === 'small'
+          ? mutedColor
+          : defaultColor;
+
+  const callerFlat = style ? StyleSheet.flatten(style) : undefined;
+  const resolvedFontSize = callerFlat?.fontSize ?? typeStyle.fontSize;
+  const minSafeLineHeight = Math.round(resolvedFontSize * 1.38);
+  const resolvedLineHeight =
+    callerFlat?.lineHeight != null
+      ? Math.max(callerFlat.lineHeight, Math.round(resolvedFontSize * 1.28))
+      : callerFlat?.fontSize != null
+        ? minSafeLineHeight
+        : typeStyle.lineHeight;
 
   return (
     <Text
       style={[
-        { color },
-        type === 'default' ? styles.default : undefined,
-        type === 'title' ? styles.title : undefined,
-        type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
-        type === 'subtitle' ? styles.subtitle : undefined,
-        type === 'link' ? styles.link : undefined,
-        type === 'caption' ? styles.caption : undefined,
-        type === 'small' ? styles.small : undefined,
+        { color: baseColor },
+        typeStyle,
         style,
+        { lineHeight: resolvedLineHeight },
       ]}
       {...rest}
     />
@@ -37,41 +68,38 @@ export function ThemedText({
 
 const styles = StyleSheet.create({
   default: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     fontFamily: 'Poppins',
   },
   defaultSemiBold: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: '600',
+    fontSize: 15,
+    lineHeight: 22,
     fontFamily: 'PoppinsBold',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
+    fontSize: 26,
+    lineHeight: 36,
     fontFamily: 'PoppinsBold',
   },
   subtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    lineHeight: 26,
     fontFamily: 'PoppinsBold',
   },
   link: {
-    lineHeight: 30,
-    fontSize: 16,
-    color: '#0a7ea4',
-    fontFamily: 'Poppins',
+    fontSize: 15,
+    lineHeight: 24,
+    fontFamily: 'PoppinsBold',
   },
   caption: {
-    fontSize: 14,
-    color: '#687076',
+    fontSize: 13,
+    lineHeight: 20,
     fontFamily: 'Poppins',
   },
   small: {
     fontSize: 12,
-    color: '#888',
+    lineHeight: 18,
     fontFamily: 'Poppins',
-  }
+  },
 });

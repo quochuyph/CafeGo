@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import axios from "axios";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, StyleSheet } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
 import { env } from '@/config/env';
 
 const API_URL = env.api.passwordResetUrl;
@@ -96,62 +96,73 @@ export default function RequestResetScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <Card style={styles.card}>
-                <ThemedText type="title" style={{ textAlign: 'center', marginBottom: 24 }}>
-                    {step === "send" ? "Quên Mật Khẩu" : "Xác Thực OTP"}
-                </ThemedText>
-
-                {step === "send" && (
-                    <>
-                        <ThemedText style={{ marginBottom: 16, textAlign: 'center' }}>
-                            Nhập email của bạn để nhận mã xác thực OTP.
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <Card style={styles.card}>
+                        <ThemedText type="title" style={styles.titleText}>
+                            {step === "send" ? "Quên Mật Khẩu" : "Xác Thực OTP"}
                         </ThemedText>
-                        <Input
-                            label="Email"
-                            value={email}
-                            onChangeText={setEmail}
-                            placeholder="example@email.com"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                        <Button
-                            title="Gửi OTP"
-                            onPress={handleSend}
-                            loading={loading}
-                            style={{ marginTop: 16 }}
-                        />
-                    </>
-                )}
 
-                {step === "verify" && (
-                    <>
-                        <ThemedText style={{ marginBottom: 16, textAlign: 'center' }}>
-                            Nhập mã OTP đã được gửi tới {email}
-                        </ThemedText>
-                        <Input
-                            label="Mã OTP"
-                            value={otp}
-                            onChangeText={setOtp}
-                            keyboardType="numeric"
-                            placeholder="123456"
-                        />
+                        {step === "send" && (
+                            <>
+                                <ThemedText style={styles.subtitleText}>
+                                    Nhập email của bạn để nhận mã xác thực OTP.
+                                </ThemedText>
+                                <Input
+                                    label="Email"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    placeholder="example@email.com"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                                <Button
+                                    title="Gửi OTP"
+                                    onPress={handleSend}
+                                    loading={loading}
+                                    style={{ marginTop: 8 }}
+                                />
+                            </>
+                        )}
 
-                        <Button
-                            title={cooldown > 0 ? `Gửi lại sau ${cooldown}s` : `Gửi lại mã OTP`}
-                            onPress={resendVerification}
-                            disabled={cooldown > 0}
-                            type="ghost"
-                            style={{ marginVertical: 8 }}
-                        />
+                        {step === "verify" && (
+                            <>
+                                <ThemedText style={styles.subtitleText}>
+                                    Nhập mã OTP đã được gửi tới {email}
+                                </ThemedText>
+                                <Input
+                                    label="Mã OTP"
+                                    value={otp}
+                                    onChangeText={setOtp}
+                                    keyboardType="numeric"
+                                    placeholder="123456"
+                                />
 
-                        <Button
-                            title="Xác minh"
-                            onPress={verifyOtp}
-                            loading={loading}
-                        />
-                    </>
-                )}
-            </Card>
+                                <Button
+                                    title={cooldown > 0 ? `Gửi lại sau ${cooldown}s` : `Gửi lại mã OTP`}
+                                    onPress={resendVerification}
+                                    disabled={cooldown > 0}
+                                    type="ghost"
+                                    style={{ marginVertical: 8 }}
+                                />
+
+                                <Button
+                                    title="Xác minh"
+                                    onPress={verifyOtp}
+                                    loading={loading}
+                                />
+                            </>
+                        )}
+                    </Card>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </ThemedView>
     );
 }
@@ -159,11 +170,24 @@ export default function RequestResetScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        padding: 20,
         justifyContent: 'center',
     },
     card: {
         padding: 24,
-        borderRadius: 16,
-    }
+        borderRadius: 20,
+    },
+    titleText: {
+        fontSize: 24,
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    subtitleText: {
+        marginBottom: 20,
+        textAlign: 'center',
+        fontSize: 14,
+    },
 })

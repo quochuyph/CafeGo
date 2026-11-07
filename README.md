@@ -8,9 +8,9 @@
 
 Quản lý bàn, gọi món, thanh toán, in hóa đơn và theo dõi doanh thu — tất cả trong một ứng dụng di động, hoạt động **offline-first** và đồng bộ đám mây với Firebase.
 
-[![Expo SDK](https://img.shields.io/badge/Expo-SDK%2054-000020?logo=expo&logoColor=white)](https://expo.dev)
-[![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?logo=react&logoColor=black)](https://reactnative.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Expo SDK](https://img.shields.io/badge/Expo-SDK%2058-000020?logo=expo&logoColor=white)](https://expo.dev)
+[![React Native](https://img.shields.io/badge/React%20Native-0.88-61DAFB?logo=react&logoColor=black)](https://reactnative.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Firebase](https://img.shields.io/badge/Firebase-12-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
 [![SQLite](https://img.shields.io/badge/SQLite-offline-003B57?logo=sqlite&logoColor=white)](https://docs.expo.dev/versions/latest/sdk/sqlite/)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS-lightgrey)](#)
@@ -83,9 +83,9 @@ Quản lý bàn, gọi món, thanh toán, in hóa đơn và theo dõi doanh thu 
 
 | Hạng mục | Công nghệ |
 | --- | --- |
-| **Framework** | [React Native 0.81](https://reactnative.dev) · [Expo SDK 54](https://expo.dev) · New Architecture |
-| **Ngôn ngữ** | TypeScript (strict mode) |
-| **Điều hướng** | [Expo Router 6](https://docs.expo.dev/router/introduction/) (file-based routing, typed routes) |
+| **Framework** | [React Native 0.88](https://reactnative.dev) · [Expo SDK 58](https://expo.dev) · New Architecture |
+| **Ngôn ngữ** | TypeScript 6.0 (strict mode) |
+| **Điều hướng** | [Expo Router 58](https://docs.expo.dev/router/introduction/) (file-based routing, typed routes) |
 | **Lưu trữ cục bộ** | [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/) · AsyncStorage |
 | **Backend / Cloud** | Firebase Authentication · Cloud Firestore · Cloud Functions |
 | **Dịch vụ OTP** | REST API (Node.js, triển khai trên Vercel) gọi qua `axios` |
@@ -204,7 +204,7 @@ CafeGo/
 
 ### Yêu cầu
 
-- [Node.js](https://nodejs.org) ≥ 20 LTS và npm
+- [Node.js](https://nodejs.org) ≥ 22 LTS (khuyến nghị 22.13+ hoặc 24.3+) và npm
 - Ứng dụng [Expo Go](https://expo.dev/go) trên điện thoại, hoặc Android Studio / Xcode (emulator)
 - Một project [Firebase](https://console.firebase.google.com) đã bật **Cloud Firestore**
 

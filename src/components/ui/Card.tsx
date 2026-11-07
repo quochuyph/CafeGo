@@ -17,11 +17,12 @@ export function Card({ children, style, variant = 'elevated' }: CardProps) {
     const getVariantStyle = () => {
         switch (variant) {
             case 'elevated':
-                return theme === 'light' ? styles.shadow : styles.borderSubtle;
+                return theme === 'light'
+                    ? styles.shadow
+                    : { borderWidth: 1, borderColor };
             case 'outlined':
                 return { borderWidth: 1, borderColor };
             case 'flat':
-                return {};
             default:
                 return {};
         }
@@ -37,21 +38,17 @@ export function Card({ children, style, variant = 'elevated' }: CardProps) {
 const styles = StyleSheet.create({
     card: {
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 16,
         marginBottom: 12,
     },
     shadow: {
-        shadowColor: '#000',
+        shadowColor: '#1C1008',
         shadowOffset: {
             width: 0,
             height: 2,
         },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowOpacity: 0.07,
+        shadowRadius: 6,
+        elevation: 3,
     },
-    borderSubtle: {
-        borderWidth: 1,
-        borderColor: '#3E4145', // Dark mode subtle border
-    }
 });

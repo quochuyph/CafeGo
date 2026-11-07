@@ -8,7 +8,7 @@ import axios from "axios";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { collection, getDocs, query, updateDoc, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { firestore } from '@/config/firebase';
 import { env } from '@/config/env';
 
@@ -134,54 +134,69 @@ export default function EmailVerificationScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <Card style={styles.card}>
-                <ThemedText type="title" style={{ textAlign: 'center', marginBottom: 24 }}>Xác Thực Email</ThemedText>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <Card style={styles.card}>
+                        <ThemedText type="title" style={styles.titleText}>Xác Thực Email</ThemedText>
 
-                {step === "send" && (
-                    <View>
-                        <Input
-                            label="Email"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            placeholder="example@email.com"
-                        />
-                        <Button
-                            title="Gửi OTP"
-                            onPress={sendOtp}
-                            loading={loading}
-                        />
-                    </View>
-                )}
+                        {step === "send" && (
+                            <View>
+                                <ThemedText style={styles.subtitleText}>
+                                    Liên kết email để bảo mật tài khoản và khôi phục mật khẩu khi cần.
+                                </ThemedText>
+                                <Input
+                                    label="Email"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                    placeholder="example@email.com"
+                                />
+                                <Button
+                                    title="Gửi OTP"
+                                    onPress={sendOtp}
+                                    loading={loading}
+                                    style={{ marginTop: 8 }}
+                                />
+                            </View>
+                        )}
 
-                {step === "verify" && (
-                    <View>
-                        <ThemedText style={{ marginBottom: 16, textAlign: 'center' }}>
-                            Mã OTP đã gửi đến {email}
-                        </ThemedText>
-                        <Input
-                            label="Mã OTP"
-                            value={otp}
-                            onChangeText={setOtp}
-                            keyboardType="numeric"
-                            placeholder="123456"
-                        />
-                        <Button
-                            title={cooldown > 0 ? `Gửi lại sau ${cooldown}s` : `Gửi lại mã OTP`}
-                            onPress={resendVerification}
-                            disabled={cooldown > 0}
-                            type="ghost"
-                            style={{ marginVertical: 8 }}
-                        />
-                        <Button
-                            title="Xác minh OTP"
-                            onPress={verifyOtp}
-                            loading={loading}
-                        />
-                    </View>
-                )}
-            </Card>
+                        {step === "verify" && (
+                            <View>
+                                <ThemedText style={styles.subtitleText}>
+                                    Mã OTP đã gửi đến {email}
+                                </ThemedText>
+                                <Input
+                                    label="Mã OTP"
+                                    value={otp}
+                                    onChangeText={setOtp}
+                                    keyboardType="numeric"
+                                    placeholder="123456"
+                                />
+                                <Button
+                                    title={cooldown > 0 ? `Gửi lại sau ${cooldown}s` : `Gửi lại mã OTP`}
+                                    onPress={resendVerification}
+                                    disabled={cooldown > 0}
+                                    type="ghost"
+                                    style={{ marginVertical: 8 }}
+                                />
+                                <Button
+                                    title="Xác minh OTP"
+                                    onPress={verifyOtp}
+                                    loading={loading}
+                                />
+                            </View>
+                        )}
+                    </Card>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </ThemedView>
     );
 }
@@ -189,11 +204,24 @@ export default function EmailVerificationScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        padding: 20,
         justifyContent: 'center',
     },
     card: {
         padding: 24,
-        borderRadius: 16,
+        borderRadius: 20,
+    },
+    titleText: {
+        fontSize: 24,
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    subtitleText: {
+        marginBottom: 20,
+        textAlign: 'center',
+        fontSize: 14,
     },
 });

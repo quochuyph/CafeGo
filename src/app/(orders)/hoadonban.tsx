@@ -5,13 +5,13 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { addDoc, collection, getDocs, query, updateDoc, where } from "firebase/firestore";
-import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { firestore } from '@/config/firebase';
+import { router } from 'expo-router';
 const numeral = require('numeral');
 
 type chitiethdDataType = { MaChiTietHD: number, MaHoaDon: number, MaMon: number, SoLuong: number, Gia: number }
@@ -21,16 +21,22 @@ type NhomMon = { MaLoai: number, TenLoai: string }
 
 const HoaDonBan = () => {
     const { MaBan } = useLocalSearchParams()
-    const router = useRouter()
-    const { colors } = useTheme()
 
     const primaryColor = useThemeColor({}, 'primary');
+    const secondaryColor = useThemeColor({}, 'secondary');
     const iconColor = useThemeColor({}, 'icon');
     const cardColor = useThemeColor({}, 'card');
-    const bgColor = useThemeColor({}, 'background');
+    const inputBg = useThemeColor({}, 'inputBackground');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
     const textColor = useThemeColor({}, 'text');
+    const purpleColor = useThemeColor({}, 'purple');
+    const purpleBg = useThemeColor({}, 'purpleBg');
+    const warningBg = useThemeColor({}, 'warningBg');
+    const dangerBg = useThemeColor({}, 'dangerBg');
+    const errorColor = useThemeColor({}, 'error');
+    const successBg = useThemeColor({}, 'successBg');
+    const successColor = useThemeColor({}, 'success');
 
     const [chiTietHDData, setChiTietHDData] = useState<chitiethdDataType[]>([])
     const [hoaDonData, setHoaDonData] = useState<hoaDonType[]>([])
@@ -47,7 +53,10 @@ const HoaDonBan = () => {
     const [giaMon, setGiaMon] = useState('')
 
     const [totalAmount, setTotalAmount] = useState(0);
-    const [totalQuantity, setTotalQuantity] = useState(0);
+    const totalQuantity = React.useMemo(
+        () => chiTietHDData.reduce((acc, item) => acc + item.SoLuong * 1, 0),
+        [chiTietHDData],
+    );
 
     const [isModalVisible, setModalVisible] = useState(false);
     const [isModalViewMenuVisible, setModalViewMenuVisible] = useState(false);
@@ -191,7 +200,7 @@ const HoaDonBan = () => {
         }
     }
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             await database.runAsync(
                 `UPDATE ban SET TrangThai = ? WHERE MaBan = ?`,
@@ -235,22 +244,13 @@ const HoaDonBan = () => {
         const allMenu = await database.getAllAsync<menuType>("SELECT * FROM menu;")
         setMenuData(allMenu)
         setFilterData(allMenu)
-    }
+    }, [MaBan, database, uid])
 
     useEffect(() => {
         if (MaBan) {
-            loadData()
+            Promise.resolve().then(() => loadData())
         }
-    }, [MaBan])
-
-    useEffect(() => {
-        if (chiTietHDData.length > 0) {
-            const sum = chiTietHDData.reduce((acc, item) => acc + (item.SoLuong * 1), 0);
-            setTotalQuantity(sum);
-        } else {
-            setTotalQuantity(0);
-        }
-    }, [chiTietHDData]);
+    }, [MaBan, loadData])
 
     if (loading || uid === null) {
         return (
@@ -263,7 +263,7 @@ const HoaDonBan = () => {
     return (
         <ThemedView style={styles.container}>
             {/* Search Input */}
-            <View style={[styles.searchContainer, { backgroundColor: cardColor, borderColor }]}>
+            <View style={[styles.searchContainer, { backgroundColor: inputBg, borderColor }]}>
                 <AntDesign name="search" size={18} color={mutedColor} style={{ marginRight: 8 }} />
                 <TextInput
                     style={[styles.searchInput, { color: textColor }]}
@@ -291,7 +291,7 @@ const HoaDonBan = () => {
                             <TouchableOpacity
                                 style={[
                                     styles.categoryPill,
-                                    { borderColor: isSelected ? primaryColor : borderColor },
+                                    { backgroundColor: cardColor, borderColor: isSelected ? primaryColor : borderColor },
                                     isSelected && { backgroundColor: primaryColor }
                                 ]}
                                 onPress={() => handleFilterCategory(item.MaLoai as any)}
@@ -323,9 +323,9 @@ const HoaDonBan = () => {
                     </View>
                 </View>
                 {totalAmount > 0 && (
-                    <TouchableOpacity style={[styles.viewOrderBtn, { backgroundColor: '#F5EEF8' }]} onPress={toggleModalViewMenu}>
-                        <MaterialIcons name="receipt-long" size={18} color="#9B59B6" />
-                        <ThemedText style={{ color: '#9B59B6', fontFamily: 'PoppinsBold', fontSize: 13 }}>Xem Món</ThemedText>
+                    <TouchableOpacity style={[styles.viewOrderBtn, { backgroundColor: purpleBg }]} onPress={toggleModalViewMenu}>
+                        <MaterialIcons name="receipt-long" size={18} color={purpleColor} />
+                        <ThemedText style={{ color: purpleColor, fontFamily: 'PoppinsBold', fontSize: 13 }}>Xem Món</ThemedText>
                     </TouchableOpacity>
                 )}
             </View>
@@ -344,10 +344,10 @@ const HoaDonBan = () => {
                         >
                             <Card style={[styles.menuItemCard, { backgroundColor: cardColor, borderColor }]} variant="elevated">
                                 <View style={styles.menuItemLeft}>
-                                    <View style={[styles.itemIconCircle, { backgroundColor: '#FEF9E7' }]}>
+                                    <View style={[styles.itemIconCircle, { backgroundColor: warningBg }]}>
                                         <ThemedText style={{ fontSize: 22 }}>☕</ThemedText>
                                     </View>
-                                    <View style={{ flex: 1 }}>
+                                    <View style={{ flex: 1, marginRight: 8 }}>
                                         <ThemedText style={styles.menuItemName} type="defaultSemiBold">{item.TenMon}</ThemedText>
                                         <ThemedText style={[styles.menuItemUnit, { color: mutedColor }]}>Đơn vị: {item.DVT}</ThemedText>
                                     </View>
@@ -384,12 +384,12 @@ const HoaDonBan = () => {
                         )}
                         
                         <View style={styles.counterRow}>
-                            <TouchableOpacity style={[styles.stepperBtn, { backgroundColor: '#FDEDEC' }]} onPress={handleMinus}>
-                                <AntDesign name="minus" size={20} color="#E74C3C" />
+                            <TouchableOpacity style={[styles.stepperBtn, { backgroundColor: dangerBg }]} onPress={handleMinus}>
+                                <AntDesign name="minus" size={20} color={errorColor} />
                             </TouchableOpacity>
                             <ThemedText style={styles.counterNumber}>{sl}</ThemedText>
-                            <TouchableOpacity style={[styles.stepperBtn, { backgroundColor: '#EAFAF1' }]} onPress={handlePlus}>
-                                <AntDesign name="plus" size={20} color="#27AE60" />
+                            <TouchableOpacity style={[styles.stepperBtn, { backgroundColor: successBg }]} onPress={handlePlus}>
+                                <AntDesign name="plus" size={20} color={successColor} />
                             </TouchableOpacity>
                         </View>
 
@@ -418,7 +418,7 @@ const HoaDonBan = () => {
             <Modal visible={isModalViewMenuVisible} transparent animationType="slide">
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalBoxLarge, { backgroundColor: cardColor }]}>
-                        <View style={styles.modalHeaderRow}>
+                        <View style={[styles.modalHeaderRow, { borderBottomColor: borderColor }]}>
                             <ThemedText type="title" style={{ fontSize: 18 }}>Món Đã Gọi</ThemedText>
                             <TouchableOpacity onPress={() => setModalViewMenuVisible(false)}>
                                 <AntDesign name="close" size={22} color={iconColor} />
@@ -435,8 +435,8 @@ const HoaDonBan = () => {
                                 return (
                                     <View style={[styles.orderedItemRow, { borderBottomColor: borderColor }]}>
                                         <ThemedText style={styles.orderedItemName}>{tenMon}</ThemedText>
-                                        <View style={styles.orderedItemQtyBadge}>
-                                            <ThemedText style={styles.orderedItemQty}>x{item.SoLuong}</ThemedText>
+                                        <View style={[styles.orderedItemQtyBadge, { backgroundColor: secondaryColor }]}>
+                                            <ThemedText style={[styles.orderedItemQty, { color: primaryColor }]}>x{item.SoLuong}</ThemedText>
                                         </View>
                                     </View>
                                 );
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginHorizontal: 20,
         paddingHorizontal: 14,
-        height: 48,
+        minHeight: 48,
         borderRadius: 14,
         borderWidth: 1,
         marginTop: 16,
@@ -475,8 +475,11 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
+        minHeight: 46,
+        paddingVertical: 8,
         fontSize: 15,
         fontFamily: 'Poppins',
+        textAlignVertical: 'center',
     },
     categoryContainer: {
         marginBottom: 12,
@@ -610,7 +613,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#E8DDD5',
     },
     modalTitle: {
         fontSize: 18,
@@ -621,6 +623,7 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontFamily: 'Poppins',
         marginBottom: 20,
+        textAlign: 'center',
     },
     counterRow: {
         flexDirection: 'row',
@@ -682,11 +685,12 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
     },
     orderedItemName: {
+        flex: 1,
+        marginRight: 12,
         fontSize: 15,
         fontFamily: 'Poppins',
     },
     orderedItemQtyBadge: {
-        backgroundColor: '#F5EDE6',
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,

@@ -3,27 +3,45 @@ import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useTheme } from '@react-navigation/native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useState } from 'react';
-import { Dimensions, FlatList, Image, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, StyleSheet, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type BanType = { MaBan: number, TenBan: string, TrangThai: string }
 
-const { width } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
-const ITEM_WIDTH = (width - 48 - (16 * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 const Table = () => {
-    const { colors } = useTheme();
+    const { width } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
+    const itemWidth = Math.floor((width - 40 - 12 * (COLUMN_COUNT - 1)) / COLUMN_COUNT);
+
     const primaryColor = useThemeColor({}, 'primary');
     const textColor = useThemeColor({}, 'text');
     const iconColor = useThemeColor({}, 'icon');
     const cardColor = useThemeColor({}, 'card');
-    const bgColor = useThemeColor({}, 'background');
+    const inputBg = useThemeColor({}, 'inputBackground');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
+
+    const infoColor = useThemeColor({}, 'info');
+    const infoBg = useThemeColor({}, 'infoBg');
+    const purpleColor = useThemeColor({}, 'purple');
+    const purpleBg = useThemeColor({}, 'purpleBg');
+    const errorColor = useThemeColor({}, 'error');
+    const dangerBg = useThemeColor({}, 'dangerBg');
+
+    const tableEmpty = useThemeColor({}, 'tableEmpty');
+    const tableEmptyBorder = useThemeColor({}, 'tableEmptyBorder');
+    const tableEmptyText = useThemeColor({}, 'tableEmptyText');
+    const tableServing = useThemeColor({}, 'tableServing');
+    const tableServingBorder = useThemeColor({}, 'tableServingBorder');
+    const tableServingText = useThemeColor({}, 'tableServingText');
+    const tableBooked = useThemeColor({}, 'tableBooked');
+    const tableBookedBorder = useThemeColor({}, 'tableBookedBorder');
+    const tableBookedText = useThemeColor({}, 'tableBookedText');
 
     const [showActionSheet, setShowActionSheet] = useState(false);
     const [banData, setBanData] = useState<BanType[]>([]);
@@ -35,14 +53,14 @@ const Table = () => {
 
     const database = useSQLiteContext();
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         const result = await database.getAllAsync<BanType>("SELECT * FROM ban;");
         setBanData(result);
         setFilterData(result);
         setbanTrongAmount(result.filter(b => b.TrangThai === 'Trống').length);
         setbanDatTruocAmount(result.filter(b => b.TrangThai === 'Đã Đặt Trước').length);
         setbanDangPhucVuAmount(result.filter(b => b.TrangThai === 'Đang Phục Vụ').length);
-    };
+    }, [database]);
 
     const handleSearch = (query: string) => {
         setSearchQuery(query);
@@ -55,28 +73,45 @@ const Table = () => {
         }
     };
 
-    useFocusEffect(useCallback(() => { loadData(); }, []));
+    useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
     const getTableColor = (trangThai: string) => {
-        if (trangThai === 'Đang Phục Vụ') return { bg: '#FFACAC', border: '#E74C3C', label: '#C0392B' };
-        if (trangThai === 'Đã Đặt Trước') return { bg: '#D39FE9', border: '#9B59B6', label: '#7D3C98' };
-        return { bg: '#ABD3F9', border: '#3498DB', label: '#1A5276' };
+        if (trangThai === 'Đang Phục Vụ') {
+            return { bg: tableServing, border: tableServingBorder, label: tableServingText };
+        }
+        if (trangThai === 'Đã Đặt Trước') {
+            return { bg: tableBooked, border: tableBookedBorder, label: tableBookedText };
+        }
+        return { bg: tableEmpty, border: tableEmptyBorder, label: tableEmptyText };
     };
 
     const renderItem = ({ item }: { item: BanType }) => {
         const tc = getTableColor(item.TrangThai);
         return (
             <TouchableOpacity
-                style={styles.tableItemWrapper}
+                style={[styles.tableItemWrapper, { width: itemWidth }]}
                 onPress={() => router.push({ pathname: '/chitietban', params: { MaBan: item.MaBan } })}
                 activeOpacity={0.8}
             >
-                <View style={[styles.tableCard, { backgroundColor: tc.bg, borderColor: tc.border }]}>
+                <View
+                    style={[
+                        styles.tableCard,
+                        {
+                            minHeight: Math.max(itemWidth, 108),
+                            backgroundColor: tc.bg,
+                            borderColor: tc.border,
+                        },
+                    ]}
+                >
                     <Image style={styles.tableImg} source={require('@assets/table/table.png')} resizeMode="contain" />
-                    <ThemedText style={[styles.tableName, { color: tc.label }]} type="defaultSemiBold">
+                    <ThemedText
+                        style={[styles.tableName, { color: tc.label }]}
+                        type="defaultSemiBold"
+                        numberOfLines={2}
+                    >
                         {item.TenBan}
                     </ThemedText>
-                    <View style={[styles.statusDot, { backgroundColor: tc.border }]} />
+                    <View style={[styles.statusDot, { backgroundColor: tc.border, borderColor: cardColor }]} />
                 </View>
             </TouchableOpacity>
         );
@@ -97,11 +132,11 @@ const Table = () => {
             {/* Action Sheet Modal */}
             <Modal visible={showActionSheet} transparent animationType="fade">
                 <TouchableOpacity style={styles.actionSheetOverlay} activeOpacity={1} onPress={() => setShowActionSheet(false)}>
-                    <View style={[styles.actionSheet, { backgroundColor: cardColor }]}>
+                    <View style={[styles.actionSheet, { backgroundColor: cardColor, paddingBottom: Math.max(insets.bottom + 16, 28) }]}>
                         <ThemedText style={styles.actionSheetTitle}>Tùy chọn</ThemedText>
                         <TouchableOpacity style={styles.actionItem} onPress={() => { setShowActionSheet(false); router.push('/themban'); }}>
                             <AntDesign name="plus" size={20} color={primaryColor} />
-                            <ThemedText style={[styles.actionText, { color: primaryColor }]}>Thêm Bàn</ThemedText>
+                            <ThemedText style={[styles.actionText, { color: primaryColor, fontFamily: 'PoppinsBold' }]}>Thêm Bàn</ThemedText>
                         </TouchableOpacity>
                         <View style={[styles.divider, { backgroundColor: borderColor }]} />
                         <TouchableOpacity style={styles.actionItem} onPress={() => { setShowActionSheet(false); router.push('/quanlyban'); }}>
@@ -113,7 +148,7 @@ const Table = () => {
             </Modal>
 
             {/* Search */}
-            <View style={[styles.searchContainer, { backgroundColor: cardColor, borderColor }]}>
+            <View style={[styles.searchContainer, { backgroundColor: inputBg, borderColor }]}>
                 <AntDesign name="search" size={18} color={mutedColor} style={{ marginRight: 8 }} />
                 <TextInput
                     style={[styles.searchInput, { color: textColor }]}
@@ -129,17 +164,23 @@ const Table = () => {
 
             {/* Stats Pills */}
             <View style={styles.statsContainer}>
-                <View style={[styles.statPill, { backgroundColor: '#EBF5FB' }]}>
-                    <View style={[styles.statDot, { backgroundColor: '#3498DB' }]} />
-                    <ThemedText style={styles.statText}>Trống: <ThemedText style={[styles.statNum, { color: '#1A5276' }]}>{banTrongAmount}</ThemedText></ThemedText>
+                <View style={[styles.statPill, { backgroundColor: infoBg }]}>
+                    <View style={[styles.statDot, { backgroundColor: infoColor }]} />
+                    <ThemedText style={styles.statText}>
+                        Trống: <ThemedText style={[styles.statNum, { color: infoColor }]}>{banTrongAmount}</ThemedText>
+                    </ThemedText>
                 </View>
-                <View style={[styles.statPill, { backgroundColor: '#F5EEF8' }]}>
-                    <View style={[styles.statDot, { backgroundColor: '#9B59B6' }]} />
-                    <ThemedText style={styles.statText}>Đặt trước: <ThemedText style={[styles.statNum, { color: '#7D3C98' }]}>{banDatTruocAmount}</ThemedText></ThemedText>
+                <View style={[styles.statPill, { backgroundColor: purpleBg }]}>
+                    <View style={[styles.statDot, { backgroundColor: purpleColor }]} />
+                    <ThemedText style={styles.statText}>
+                        Đặt trước: <ThemedText style={[styles.statNum, { color: purpleColor }]}>{banDatTruocAmount}</ThemedText>
+                    </ThemedText>
                 </View>
-                <View style={[styles.statPill, { backgroundColor: '#FDEDEC' }]}>
-                    <View style={[styles.statDot, { backgroundColor: '#E74C3C' }]} />
-                    <ThemedText style={styles.statText}>Phục vụ: <ThemedText style={[styles.statNum, { color: '#C0392B' }]}>{banDangPhucVuAmount}</ThemedText></ThemedText>
+                <View style={[styles.statPill, { backgroundColor: dangerBg }]}>
+                    <View style={[styles.statDot, { backgroundColor: errorColor }]} />
+                    <ThemedText style={styles.statText}>
+                        Phục vụ: <ThemedText style={[styles.statNum, { color: errorColor }]}>{banDangPhucVuAmount}</ThemedText>
+                    </ThemedText>
                 </View>
             </View>
 
@@ -210,13 +251,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginHorizontal: 20,
         paddingHorizontal: 14,
-        height: 48,
+        minHeight: 48,
         borderRadius: 14,
         borderWidth: 1,
         marginTop: 16,
         marginBottom: 12,
     },
-    searchInput: { flex: 1, fontSize: 15, fontFamily: 'Poppins' },
+    searchInput: {
+        flex: 1,
+        minHeight: 46,
+        paddingVertical: 8,
+        fontSize: 15,
+        fontFamily: 'Poppins',
+        textAlignVertical: 'center',
+    },
     statsContainer: {
         flexDirection: 'row',
         gap: 8,
@@ -234,21 +282,21 @@ const styles = StyleSheet.create({
     },
     statDot: { width: 8, height: 8, borderRadius: 4 },
     statText: { fontSize: 13, fontFamily: 'Poppins' },
-    statNum: { fontFamily: 'PoppinsBold' },
+    statNum: { fontSize: 13, fontFamily: 'PoppinsBold' },
     listContent: { paddingHorizontal: 20, paddingBottom: 24 },
-    columnWrapper: { gap: 16 },
-    tableItemWrapper: { width: ITEM_WIDTH, marginBottom: 16 },
+    columnWrapper: { gap: 12 },
+    tableItemWrapper: { marginBottom: 12 },
     tableCard: {
-        height: ITEM_WIDTH,
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
         borderRadius: 16,
-        borderWidth: 2,
+        borderWidth: 1.5,
         position: 'relative',
     },
-    tableImg: { width: '55%', height: '50%', marginBottom: 6 },
-    tableName: { fontSize: 12, textAlign: 'center' },
+    tableImg: { width: 46, height: 40, marginBottom: 6 },
+    tableName: { fontSize: 12, textAlign: 'center', lineHeight: 16 },
     statusDot: {
         position: 'absolute',
         top: 8,
@@ -257,7 +305,6 @@ const styles = StyleSheet.create({
         height: 10,
         borderRadius: 5,
         borderWidth: 2,
-        borderColor: '#fff',
     },
     emptyState: {
         alignItems: 'center',

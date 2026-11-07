@@ -6,24 +6,29 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import Entypo from '@expo/vector-icons/Entypo';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native';
-import { Stack, router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { collection, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { firestore } from '@/config/firebase';
 
 type NhomMon = { MaLoai: number, TenLoai: string, userId: string }
 
 const QuanLyNhomMon = () => {
-    const { colors } = useTheme()
+    const insets = useSafeAreaInsets();
     const primaryColor = useThemeColor({}, 'primary');
+    const secondaryColor = useThemeColor({}, 'secondary');
     const textColor = useThemeColor({}, 'text');
-    const iconColor = useThemeColor({}, 'icon');
     const cardColor = useThemeColor({}, 'card');
+    const inputBg = useThemeColor({}, 'inputBackground');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
+    const infoColor = useThemeColor({}, 'info');
+    const infoBg = useThemeColor({}, 'infoBg');
+    const errorColor = useThemeColor({}, 'error');
+    const dangerBg = useThemeColor({}, 'dangerBg');
 
     const [nhomMonData, setNhomMonData] = useState<NhomMon[]>([])
     const [filterData, setFilterData] = useState<NhomMon[]>([])
@@ -32,6 +37,21 @@ const QuanLyNhomMon = () => {
     const database = useSQLiteContext()
     const [uid, setUid] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const loadData = useCallback(async (storedUid: string) => {
+        const result = await database.getAllAsync<NhomMon>("SELECT * FROM nhommon WHERE userId = ?;", [storedUid])
+        setNhomMonData(result)
+        if (searchQuery) {
+            const newData = result.filter((item) => {
+                const itemData = item.TenLoai ? item.TenLoai.toUpperCase() : ''
+                const textData = searchQuery.toUpperCase()
+                return itemData.indexOf(textData) > -1
+            })
+            setFilterData(newData)
+        } else {
+            setFilterData(result)
+        }
+    }, [database, searchQuery])
 
     useEffect(() => {
         const loadUid = async () => {
@@ -45,7 +65,7 @@ const QuanLyNhomMon = () => {
             }
         };
         loadUid();
-    }, []);
+    }, [loadData]);
 
     useFocusEffect(
         useCallback(() => {
@@ -60,23 +80,8 @@ const QuanLyNhomMon = () => {
                 }
             };
             checkUid();
-        }, [])
+        }, [loadData])
     )
-
-    const loadData = async (storedUid: string) => {
-        const result = await database.getAllAsync<NhomMon>("SELECT * FROM nhommon WHERE userId = ?;", [storedUid])
-        setNhomMonData(result)
-        if (searchQuery) {
-            const newData = result.filter((item) => {
-                const itemData = item.TenLoai ? item.TenLoai.toUpperCase() : ''
-                const textData = searchQuery.toUpperCase()
-                return itemData.indexOf(textData) > -1
-            })
-            setFilterData(newData)
-        } else {
-            setFilterData(result)
-        }
-    }
 
     const handleSearch = (query: string) => {
         setSearchQuery(query)
@@ -137,7 +142,7 @@ const QuanLyNhomMon = () => {
     return (
         <ThemedView style={styles.container}>
             {/* Search */}
-            <View style={[styles.searchContainer, { backgroundColor: cardColor, borderColor }]}>
+            <View style={[styles.searchContainer, { backgroundColor: inputBg, borderColor }]}>
                 <AntDesign name="search" size={18} color={mutedColor} style={{ marginRight: 8 }} />
                 <TextInput
                     style={[styles.searchInput, { color: textColor }]}
@@ -160,23 +165,23 @@ const QuanLyNhomMon = () => {
                     return (
                         <Card style={[styles.card, { backgroundColor: cardColor, borderColor }]} variant="elevated">
                             <View style={styles.cardLeft}>
-                                <View style={[styles.iconCircle, { backgroundColor: '#F5EDE6' }]}>
+                                <View style={[styles.iconCircle, { backgroundColor: secondaryColor }]}>
                                     <MaterialIcons name="category" size={22} color={primaryColor} />
                                 </View>
                                 <ThemedText type='defaultSemiBold' style={styles.groupName}>{item.TenLoai}</ThemedText>
                             </View>
                             <View style={styles.cardFeatures}>
                                 <TouchableOpacity
-                                    style={[styles.actionBtn, { backgroundColor: '#EBF5FB' }]}
+                                    style={[styles.actionBtn, { backgroundColor: infoBg }]}
                                     onPress={() => { router.push({ pathname: '/themnhommon', params: { MaLoai: item.MaLoai, userId: item.userId } }) }}
                                 >
-                                    <Entypo name="edit" size={16} color="#3498DB" />
+                                    <Entypo name="edit" size={16} color={infoColor} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.actionBtn, { backgroundColor: '#FDEDEC' }]}
+                                    style={[styles.actionBtn, { backgroundColor: dangerBg }]}
                                     onPress={() => handleDelete(`${item.MaLoai}`)}
                                 >
-                                    <Entypo name="trash" size={16} color="#E74C3C" />
+                                    <Entypo name="trash" size={16} color={errorColor} />
                                 </TouchableOpacity>
                             </View>
                         </Card>
@@ -191,7 +196,10 @@ const QuanLyNhomMon = () => {
             />
 
             {/* Floating Action Button */}
-            <TouchableOpacity style={[styles.fab, { backgroundColor: primaryColor }]} onPress={() => router.push('/themnhommon')}>
+            <TouchableOpacity
+                style={[styles.fab, { backgroundColor: primaryColor, bottom: Math.max(insets.bottom + 16, 24) }]}
+                onPress={() => router.push('/themnhommon')}
+            >
                 <AntDesign name="plus" size={24} color="#fff" />
             </TouchableOpacity>
         </ThemedView>
@@ -209,7 +217,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginHorizontal: 20,
         paddingHorizontal: 14,
-        height: 48,
+        minHeight: 48,
         borderRadius: 14,
         borderWidth: 1,
         marginTop: 16,
@@ -217,12 +225,15 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
+        minHeight: 46,
+        paddingVertical: 8,
         fontSize: 15,
         fontFamily: 'Poppins',
+        textAlignVertical: 'center',
     },
     listContent: {
         paddingHorizontal: 20,
-        paddingBottom: 80,
+        paddingBottom: 88,
         gap: 10,
     },
     card: {
@@ -238,6 +249,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 12,
         flex: 1,
+        marginRight: 8,
     },
     iconCircle: {
         width: 44,
@@ -247,6 +259,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     groupName: {
+        flex: 1,
         fontSize: 15,
         fontFamily: 'PoppinsBold',
     },

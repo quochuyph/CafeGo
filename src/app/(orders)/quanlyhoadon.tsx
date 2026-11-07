@@ -18,14 +18,19 @@ const QuanLyHoaDon = () => {
     const cardColor = useThemeColor({}, 'card');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
-    const textColor = useThemeColor({}, 'text');
+    const successColor = useThemeColor({}, 'success');
+    const successBg = useThemeColor({}, 'successBg');
+    const warningColor = useThemeColor({}, 'warning');
+    const warningBg = useThemeColor({}, 'warningBg');
+    const errorColor = useThemeColor({}, 'error');
+    const dangerBg = useThemeColor({}, 'dangerBg');
 
     const [hoaDonData, setHoaDonData] = useState<hoaDonType[]>([])
     const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'unpaid'>('all')
 
     const database = useSQLiteContext()
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         const result = await database.getAllAsync<hoaDonType & { TenBan: string }>(
             `SELECT hoadon.*, ban.TenBan
             FROM hoadon
@@ -33,7 +38,7 @@ const QuanLyHoaDon = () => {
             ORDER BY hoadon.MaHoaDon DESC;`
         );
         setHoaDonData(result);
-    }
+    }, [database])
 
     const selectedDate = moment()
 
@@ -80,7 +85,7 @@ const QuanLyHoaDon = () => {
     useFocusEffect(
         useCallback(() => {
             loadData()
-        }, [])
+        }, [loadData])
     )
 
     return (
@@ -89,7 +94,7 @@ const QuanLyHoaDon = () => {
             <View style={styles.headerSection}>
                 <Card style={[styles.revenueCard, { backgroundColor: primaryColor }]} variant="elevated">
                     <View style={styles.revenueTop}>
-                        <View>
+                        <View style={{ flex: 1, marginRight: 12 }}>
                             <ThemedText style={styles.dateLabel}>Hôm nay, {selectedDate.format('DD/MM/YYYY')}</ThemedText>
                             <ThemedText style={styles.revenueAmount}>
                                 {numeral(calculateTotalRevenueForDate(selectedDate)).format("0,0")} đ
@@ -107,7 +112,7 @@ const QuanLyHoaDon = () => {
                     <TouchableOpacity
                         style={[
                             styles.tabPill,
-                            { borderColor },
+                            { backgroundColor: cardColor, borderColor },
                             filterStatus === 'all' && { backgroundColor: primaryColor, borderColor: primaryColor }
                         ]}
                         onPress={() => setFilterStatus('all')}
@@ -120,8 +125,8 @@ const QuanLyHoaDon = () => {
                     <TouchableOpacity
                         style={[
                             styles.tabPill,
-                            { borderColor },
-                            filterStatus === 'paid' && { backgroundColor: '#27AE60', borderColor: '#27AE60' }
+                            { backgroundColor: cardColor, borderColor },
+                            filterStatus === 'paid' && { backgroundColor: successColor, borderColor: successColor }
                         ]}
                         onPress={() => setFilterStatus('paid')}
                     >
@@ -133,8 +138,8 @@ const QuanLyHoaDon = () => {
                     <TouchableOpacity
                         style={[
                             styles.tabPill,
-                            { borderColor },
-                            filterStatus === 'unpaid' && { backgroundColor: '#F39C12', borderColor: '#F39C12' }
+                            { backgroundColor: cardColor, borderColor },
+                            filterStatus === 'unpaid' && { backgroundColor: warningColor, borderColor: warningColor }
                         ]}
                         onPress={() => setFilterStatus('unpaid')}
                     >
@@ -166,8 +171,8 @@ const QuanLyHoaDon = () => {
                                 </View>
 
                                 <View style={styles.invoiceRight}>
-                                    <View style={[styles.statusBadge, { backgroundColor: isPaid ? '#EAFAF1' : '#FEF9E7' }]}>
-                                        <ThemedText style={[styles.statusBadgeText, { color: isPaid ? '#27AE60' : '#D68910' }]}>
+                                    <View style={[styles.statusBadge, { backgroundColor: isPaid ? successBg : warningBg }]}>
+                                        <ThemedText style={[styles.statusBadgeText, { color: isPaid ? successColor : warningColor }]}>
                                             {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
                                         </ThemedText>
                                     </View>
@@ -177,7 +182,7 @@ const QuanLyHoaDon = () => {
                             <View style={[styles.divider, { backgroundColor: borderColor }]} />
 
                             <View style={styles.invoiceFooter}>
-                                <View>
+                                <View style={{ flex: 1, marginRight: 12 }}>
                                     <ThemedText style={[styles.amountLabel, { color: mutedColor }]}>Tổng tiền:</ThemedText>
                                     <ThemedText style={[styles.amountValue, { color: primaryColor }]}>
                                         {numeral(item.TongTien || 0).format("0,0")} đ
@@ -185,10 +190,10 @@ const QuanLyHoaDon = () => {
                                 </View>
 
                                 <TouchableOpacity
-                                    style={[styles.deleteBtn, { backgroundColor: '#FDEDEC' }]}
+                                    style={[styles.deleteBtn, { backgroundColor: dangerBg }]}
                                     onPress={() => handleDeleteHoaDon(item.MaHoaDon.toString())}
                                 >
-                                    <FontAwesome6 name="trash" size={14} color="#E74C3C" />
+                                    <FontAwesome6 name="trash" size={14} color={errorColor} />
                                 </TouchableOpacity>
                             </View>
                         </Card>
@@ -282,6 +287,7 @@ const styles = StyleSheet.create({
     },
     invoiceLeft: {
         flex: 1,
+        marginRight: 10,
     },
     invoiceCode: {
         fontSize: 15,

@@ -1,44 +1,26 @@
 import { ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import "react-native-reanimated";
-
-import { useColorScheme } from "@/hooks/useColorScheme";
-import { AppDarkTheme, AppLightTheme } from '@/theme/AppTheme';
-import { Colors } from "@/theme/Colors";
-import { DATABASE_NAME } from "@/constants/app";
-import { initDatabase } from "@/database/schema";
-
 import { SQLiteProvider } from "expo-sqlite";
+import { StatusBar } from "expo-status-bar";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
+import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+import { DATABASE_NAME } from "@/constants/app";
+import { initDatabase } from "@/database/schema";
+import { AppDarkTheme, AppLightTheme } from "@/theme/AppTheme";
+import { Colors } from "@/theme/Colors";
+import { ThemePreferenceProvider, useThemePreference } from "@/theme/ThemePreferenceContext";
 
-  const [loaded] = useFonts({
-    SpaceMono: require("@assets/fonts/SpaceMono-Regular.ttf"),
-    Poppins: require("@assets/fonts/FZ Poppins-Regular.ttf"),
-    PoppinsExtraBold: require("@assets/fonts/FZ Poppins-ExtraBold.ttf"),
-    PoppinsBold: require("@assets/fonts/FZ Poppins-Bold.ttf"),
-    PoppinsItalic: require("@assets/fonts/FZ Poppins-Italic.ttf"),
-    PoppinsBoldItalic: require("@assets/fonts/FZ Poppins-BoldItalic.ttf")
-  });
-
-  if (!loaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FBF8F4" }}>
-        <ActivityIndicator size="large" color="#B5451B" />
-      </View>
-    );
-  }
-  const isDark = colorScheme === 'dark';
+function AppNavigator() {
+  const { isDark } = useThemePreference();
   const currentTheme = isDark ? Colors.dark : Colors.light;
 
   const defaultHeaderOptions = {
     headerTitleStyle: {
-      fontSize: 18,
+      fontSize: 17,
       fontFamily: "PoppinsBold",
       color: currentTheme.text,
     },
@@ -48,6 +30,11 @@ export default function RootLayout() {
     },
     headerTintColor: currentTheme.primary,
     headerShadowVisible: false,
+    headerBackButtonDisplayMode: "minimal" as const,
+    headerBackTitle: "",
+    contentStyle: {
+      backgroundColor: currentTheme.background,
+    },
   };
 
   return (
@@ -57,6 +44,7 @@ export default function RootLayout() {
           <Stack.Screen
             name="index"
             options={{
+              title: "Chào Mừng",
               headerShown: false,
             }}
           />
@@ -64,6 +52,7 @@ export default function RootLayout() {
           <Stack.Screen
             name="(auth)/authscreen"
             options={{
+              title: "Đăng Nhập",
               headerShown: false,
             }}
           />
@@ -71,16 +60,14 @@ export default function RootLayout() {
           <Stack.Screen
             name="(auth)/RequestResetScreen"
             options={{
-              title: "Đặt Lại Mật Khẩu",
-              headerBackVisible: false,
+              title: "Quên Mật Khẩu",
             }}
           />
 
           <Stack.Screen
             name="(auth)/ConfirmResetScreen"
             options={{
-              title: "Xác Nhận Yêu Cầu",
-              headerBackVisible: false,
+              title: "Đặt Lại Mật Khẩu",
             }}
           />
 
@@ -88,13 +75,13 @@ export default function RootLayout() {
             name="(auth)/EmailVerificationScreen"
             options={{
               title: "Xác Minh Email",
-              headerBackVisible: false,
             }}
           />
 
           <Stack.Screen
             name="dashboard"
             options={{
+              title: "Trang Chủ",
               headerShown: false,
             }}
           />
@@ -123,14 +110,14 @@ export default function RootLayout() {
           <Stack.Screen
             name="(orders)/table"
             options={{
-              title: "Chọn Bàn",
+              title: "Sơ Đồ Bàn",
             }}
           />
 
           <Stack.Screen
             name="(management)/themban"
             options={{
-              title: "Thêm Bàn Mới",
+              title: "Thông Tin Bàn",
             }}
           />
 
@@ -172,14 +159,14 @@ export default function RootLayout() {
           <Stack.Screen
             name="(management)/themnhommon"
             options={{
-              title: "Nhóm Món",
+              title: "Thông Tin Nhóm Món",
             }}
           />
 
           <Stack.Screen
             name="(management)/themmon"
             options={{
-              title: "Món Ăn & Đồ Uống",
+              title: "Thông Tin Món",
             }}
           />
 
@@ -189,10 +176,43 @@ export default function RootLayout() {
               title: "Quản Lý Hóa Đơn",
             }}
           />
-          <Stack.Screen name="+not-found" />
+
+          <Stack.Screen
+            name="+not-found"
+            options={{
+              title: "Không Tìm Thấy Trang",
+            }}
+          />
         </Stack>
         <StatusBar style={isDark ? "light" : "dark"} />
       </SQLiteProvider>
     </ThemeProvider>
+  );
+}
+
+export default function RootLayout() {
+  const [loaded] = useFonts({
+    SpaceMono: require("@assets/fonts/SpaceMono-Regular.ttf"),
+    Poppins: require("@assets/fonts/FZ Poppins-Regular.ttf"),
+    PoppinsExtraBold: require("@assets/fonts/FZ Poppins-ExtraBold.ttf"),
+    PoppinsBold: require("@assets/fonts/FZ Poppins-Bold.ttf"),
+    PoppinsItalic: require("@assets/fonts/FZ Poppins-Italic.ttf"),
+    PoppinsBoldItalic: require("@assets/fonts/FZ Poppins-BoldItalic.ttf"),
+  });
+
+  if (!loaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FBF8F4" }}>
+        <ActivityIndicator size="large" color="#B5451B" />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaProvider>
+      <ThemePreferenceProvider>
+        <AppNavigator />
+      </ThemePreferenceProvider>
+    </SafeAreaProvider>
   );
 }

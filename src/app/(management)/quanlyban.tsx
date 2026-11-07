@@ -6,24 +6,31 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import Entypo from '@expo/vector-icons/Entypo';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { collection, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { firestore } from '@/config/firebase';
 
 type ban = { MaBan: number, TenBan: string, TrangThai: string }
 
 const QuanLyBan = () => {
-    const { colors } = useTheme()
+    const insets = useSafeAreaInsets();
     const primaryColor = useThemeColor({}, 'primary');
+    const secondaryColor = useThemeColor({}, 'secondary');
     const textColor = useThemeColor({}, 'text');
-    const iconColor = useThemeColor({}, 'icon');
     const cardColor = useThemeColor({}, 'card');
+    const inputBg = useThemeColor({}, 'inputBackground');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
+    const infoColor = useThemeColor({}, 'info');
+    const infoBg = useThemeColor({}, 'infoBg');
+    const errorColor = useThemeColor({}, 'error');
+    const dangerBg = useThemeColor({}, 'dangerBg');
+    const purpleColor = useThemeColor({}, 'purple');
+    const purpleBg = useThemeColor({}, 'purpleBg');
 
     const [banData, setBanData] = useState<ban[]>([])
     const [filterData, setFilterData] = useState<ban[]>([])
@@ -45,7 +52,7 @@ const QuanLyBan = () => {
         loadUid();
     }, []);
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         const result = await database.getAllAsync<ban>("SELECT * FROM ban;")
         setBanData(result)
         if (searchQuery) {
@@ -58,7 +65,7 @@ const QuanLyBan = () => {
         } else {
             setFilterData(result)
         }
-    }
+    }, [database, searchQuery])
 
     const handleSearch = (query: string) => {
         setSearchQuery(query)
@@ -112,7 +119,7 @@ const QuanLyBan = () => {
     useFocusEffect(
         useCallback(() => {
             loadData()
-        }, [])
+        }, [loadData])
     )
 
     if (loading || uid === null) {
@@ -126,7 +133,7 @@ const QuanLyBan = () => {
     return (
         <ThemedView style={styles.container}>
             {/* Search */}
-            <View style={[styles.searchContainer, { backgroundColor: cardColor, borderColor }]}>
+            <View style={[styles.searchContainer, { backgroundColor: inputBg, borderColor }]}>
                 <AntDesign name="search" size={18} color={mutedColor} style={{ marginRight: 8 }} />
                 <TextInput
                     style={[styles.searchInput, { color: textColor }]}
@@ -149,16 +156,16 @@ const QuanLyBan = () => {
                 renderItem={({ item }) => {
                     const isServing = item.TrangThai === 'Đang Phục Vụ';
                     const isBooked = item.TrangThai === 'Đã Đặt Trước';
-                    const badgeBg = isServing ? '#FDEDEC' : (isBooked ? '#F5EEF8' : '#EBF5FB');
-                    const badgeColor = isServing ? '#E74C3C' : (isBooked ? '#9B59B6' : '#3498DB');
+                    const badgeBg = isServing ? dangerBg : (isBooked ? purpleBg : infoBg);
+                    const badgeColor = isServing ? errorColor : (isBooked ? purpleColor : infoColor);
 
                     return (
                         <Card style={[styles.card, { backgroundColor: cardColor, borderColor }]} variant="elevated">
                             <View style={styles.cardLeft}>
-                                <View style={[styles.tableIconBox, { backgroundColor: '#F5EDE6' }]}>
+                                <View style={[styles.tableIconBox, { backgroundColor: secondaryColor }]}>
                                     <MaterialIcons name="table-restaurant" size={22} color={primaryColor} />
                                 </View>
-                                <View>
+                                <View style={{ flex: 1, marginRight: 8 }}>
                                     <ThemedText type='defaultSemiBold' style={styles.tableName}>{item.TenBan}</ThemedText>
                                     <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
                                         <ThemedText style={[styles.statusText, { color: badgeColor }]}>{item.TrangThai}</ThemedText>
@@ -168,16 +175,16 @@ const QuanLyBan = () => {
 
                             <View style={styles.cardFeatures}>
                                 <TouchableOpacity
-                                    style={[styles.actionBtn, { backgroundColor: '#EBF5FB' }]}
+                                    style={[styles.actionBtn, { backgroundColor: infoBg }]}
                                     onPress={() => { router.push({ pathname: '/themban', params: { MaBan: item.MaBan } }) }}
                                 >
-                                    <Entypo name="edit" size={16} color="#3498DB" />
+                                    <Entypo name="edit" size={16} color={infoColor} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.actionBtn, { backgroundColor: '#FDEDEC' }]}
+                                    style={[styles.actionBtn, { backgroundColor: dangerBg }]}
                                     onPress={() => handleDelete(`${item.MaBan}`)}
                                 >
-                                    <Entypo name="trash" size={16} color="#E74C3C" />
+                                    <Entypo name="trash" size={16} color={errorColor} />
                                 </TouchableOpacity>
                             </View>
                         </Card>
@@ -192,7 +199,10 @@ const QuanLyBan = () => {
             />
 
             {/* Floating Action Button */}
-            <TouchableOpacity style={[styles.fab, { backgroundColor: primaryColor }]} onPress={() => router.push('/themban')}>
+            <TouchableOpacity
+                style={[styles.fab, { backgroundColor: primaryColor, bottom: Math.max(insets.bottom + 16, 24) }]}
+                onPress={() => router.push('/themban')}
+            >
                 <AntDesign name="plus" size={24} color="#fff" />
             </TouchableOpacity>
         </ThemedView>
@@ -210,7 +220,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginHorizontal: 20,
         paddingHorizontal: 14,
-        height: 48,
+        minHeight: 48,
         borderRadius: 14,
         borderWidth: 1,
         marginTop: 16,
@@ -218,8 +228,11 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
+        minHeight: 46,
+        paddingVertical: 8,
         fontSize: 15,
         fontFamily: 'Poppins',
+        textAlignVertical: 'center',
     },
     listContent: {
         paddingHorizontal: 20,

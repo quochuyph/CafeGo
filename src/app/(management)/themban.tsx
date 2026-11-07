@@ -9,20 +9,23 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { addDoc, collection, getDocs, query, updateDoc, where } from "firebase/firestore";
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { firestore } from '@/config/firebase';
 
 const ThemBan = () => {
     const { MaBan } = useLocalSearchParams()
 
     const primaryColor = useThemeColor({}, 'primary');
+    const secondaryColor = useThemeColor({}, 'secondary');
     const cardColor = useThemeColor({}, 'card');
+    const inputBg = useThemeColor({}, 'inputBackground');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
     const textColor = useThemeColor({}, 'text');
+    const errorColor = useThemeColor({}, 'error');
 
     const [tenBan, setTenBan] = useState('')
-    const [editMode, setEditMode] = useState(false)
+    const editMode = Boolean(MaBan)
 
     const database = useSQLiteContext()
     const [uid, setUid] = useState<string | null>(null);
@@ -41,18 +44,15 @@ const ThemBan = () => {
     }, []);
 
     useEffect(() => {
-        if (MaBan) {
-            setEditMode(true)
-            loadData()
-        }
-    }, [MaBan])
-
-    const loadData = async () => {
-        const result = await database.getFirstAsync<{
-            TenBan: string;
-        }>("SELECT TenBan FROM ban WHERE MaBan = ?;", [parseInt(MaBan as string)]);
-        if (result) setTenBan(result.TenBan);
-    }
+        if (!MaBan) return;
+        const loadData = async () => {
+            const result = await database.getFirstAsync<{
+                TenBan: string;
+            }>("SELECT TenBan FROM ban WHERE MaBan = ?;", [parseInt(MaBan as string)]);
+            if (result) setTenBan(result.TenBan);
+        };
+        loadData();
+    }, [MaBan, database])
 
     const handleSave = async () => {
         if (!tenBan.trim()) {
@@ -132,38 +132,47 @@ const ThemBan = () => {
 
     return (
         <ThemedView style={styles.container}>
-            <View style={styles.content}>
-                <Card style={[styles.card, { backgroundColor: cardColor, borderColor }]} variant="elevated">
-                    <View style={styles.iconCircle}>
-                        <MaterialIcons name="table-restaurant" size={32} color={primaryColor} />
-                    </View>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <Card style={[styles.card, { backgroundColor: cardColor, borderColor }]} variant="elevated">
+                        <View style={[styles.iconCircle, { backgroundColor: secondaryColor }]}>
+                            <MaterialIcons name="table-restaurant" size={32} color={primaryColor} />
+                        </View>
 
-                    <ThemedText type="title" style={styles.formTitle}>
-                        {editMode ? "Chỉnh Sửa Bàn" : "Thêm Bàn Mới"}
-                    </ThemedText>
-
-                    <View style={styles.inputGroup}>
-                        <ThemedText type="defaultSemiBold" style={styles.label}>
-                            Tên Bàn <ThemedText style={{ color: '#E74C3C' }}>*</ThemedText>
+                        <ThemedText type="title" style={styles.formTitle}>
+                            {editMode ? "Chỉnh Sửa Bàn" : "Thêm Bàn Mới"}
                         </ThemedText>
-                        <TextInput
-                            style={[styles.input, { color: textColor, borderColor }]}
-                            value={tenBan}
-                            onChangeText={setTenBan}
-                            placeholder="Ví dụ: Bàn 01, Bàn VIP 2..."
-                            placeholderTextColor={mutedColor}
-                            autoFocus
-                        />
-                    </View>
 
-                    <Button
-                        title={editMode ? "Cập Nhật" : "Lưu Bàn"}
-                        onPress={editMode ? handleUpdate : handleSave}
-                        loading={loading}
-                        style={styles.submitBtn}
-                    />
-                </Card>
-            </View>
+                        <View style={styles.inputGroup}>
+                            <ThemedText type="defaultSemiBold" style={styles.label}>
+                                Tên Bàn <ThemedText style={{ color: errorColor }}>*</ThemedText>
+                            </ThemedText>
+                            <TextInput
+                                style={[styles.input, { color: textColor, backgroundColor: inputBg, borderColor }]}
+                                value={tenBan}
+                                onChangeText={setTenBan}
+                                placeholder="Ví dụ: Bàn 01, Bàn VIP 2..."
+                                placeholderTextColor={mutedColor}
+                                autoFocus
+                            />
+                        </View>
+
+                        <Button
+                            title={editMode ? "Cập Nhật" : "Lưu Bàn"}
+                            onPress={editMode ? handleUpdate : handleSave}
+                            loading={loading}
+                            style={styles.submitBtn}
+                        />
+                    </Card>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </ThemedView>
     )
 }
@@ -176,6 +185,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
+        paddingBottom: 32,
     },
     card: {
         padding: 24,
@@ -187,7 +197,6 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        backgroundColor: '#F5EDE6',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 16,
@@ -210,13 +219,15 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderRadius: 12,
         fontSize: 15,
-        height: 50,
+        minHeight: 50,
         paddingHorizontal: 16,
+        paddingVertical: 10,
         fontFamily: 'Poppins',
+        textAlignVertical: 'center',
     },
     submitBtn: {
         width: '100%',
-        height: 50,
+        minHeight: 50,
         borderRadius: 12,
     },
 })

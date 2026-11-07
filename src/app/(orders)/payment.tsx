@@ -5,13 +5,12 @@ import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { collection, getDocs, query, updateDoc, where } from "firebase/firestore";
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { firestore } from '@/config/firebase';
 const numeral = require('numeral');
 
@@ -19,13 +18,16 @@ type chitiethdDataType = { MaChiTietHD: number, MaHoaDon: number, MaMon: number,
 
 const Payment = () => {
     const { MaBan } = useLocalSearchParams();
-    const { dark } = useTheme();
 
     const primaryColor = useThemeColor({}, 'primary');
+    const secondaryColor = useThemeColor({}, 'secondary');
     const cardColor = useThemeColor({}, 'card');
+    const inputBg = useThemeColor({}, 'inputBackground');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
     const textColor = useThemeColor({}, 'text');
+    const successColor = useThemeColor({}, 'success');
+    const successBg = useThemeColor({}, 'successBg');
 
     const [chitietHDData, setChiTietHDData] = useState<chitiethdDataType[]>([])
     const [itemDetailsMap, setItemDetailsMap] = useState<{ [key: number]: { TenMon: string, DVT: string } }>({})
@@ -34,7 +36,10 @@ const Payment = () => {
     const [isInitialLoading, setIsInitialLoading] = useState(true)
     const [isPaymentLoading, setIsPaymentLoading] = useState(false)
     const [tienKhachDua, setTienKhachDua] = useState('')
-    const [tongTien, setTongTien] = useState(0)
+    const tongTien = useMemo(
+        () => chitietHDData.reduce((acc, item) => acc + item.SoLuong * item.Gia, 0),
+        [chitietHDData],
+    )
 
     const [tenBan, setTenBan] = useState('')
     const [maHoaDonBan, setMaHoaDonBanData] = useState('')
@@ -60,21 +65,7 @@ const Payment = () => {
         return khach >= tongTien ? khach - tongTien : 0;
     }, [tienKhachDua, tongTien]);
 
-    const loadData = async () => {
-        const result = await database.getFirstAsync<{
-            TenBan: string;
-        }>("SELECT TenBan FROM ban WHERE MaBan = ?;", [parseInt(MaBan as string)]);
-        if (result) setTenBan(result.TenBan);
-
-        const checkInTimeresult = await database.getFirstAsync<{
-            GioDen: string;
-        }>("SELECT GioDen FROM hoadon WHERE MaBan = ? AND TrangThai = 0 ORDER BY MaHoaDon DESC LIMIT 1;", [parseInt(MaBan as string)])
-        if (checkInTimeresult) setCheckInTime(checkInTimeresult.GioDen)
-
-        loadChiTietHDData()
-    }
-
-    const loadChiTietHDData = async () => {
+    const loadChiTietHDData = useCallback(async () => {
         const maHoaDonresult = await database.getFirstAsync<{
             MaHoaDon: string;
         }>("SELECT MaHoaDon FROM hoadon WHERE MaBan = ? AND TrangThai = 0 ORDER BY MaHoaDon DESC LIMIT 1;", [parseInt(MaBan as string)])
@@ -93,22 +84,27 @@ const Payment = () => {
             }
         }
         setItemDetailsMap(detailsMap)
-    }
+    }, [MaBan, database])
+
+    const loadData = useCallback(async () => {
+        const result = await database.getFirstAsync<{
+            TenBan: string;
+        }>("SELECT TenBan FROM ban WHERE MaBan = ?;", [parseInt(MaBan as string)]);
+        if (result) setTenBan(result.TenBan);
+
+        const checkInTimeresult = await database.getFirstAsync<{
+            GioDen: string;
+        }>("SELECT GioDen FROM hoadon WHERE MaBan = ? AND TrangThai = 0 ORDER BY MaHoaDon DESC LIMIT 1;", [parseInt(MaBan as string)])
+        if (checkInTimeresult) setCheckInTime(checkInTimeresult.GioDen)
+
+        await loadChiTietHDData()
+    }, [MaBan, database, loadChiTietHDData])
 
     useEffect(() => {
         if (MaBan) {
-            loadData()
+            Promise.resolve().then(() => loadData())
         }
-    }, [MaBan])
-
-    useEffect(() => {
-        if (chitietHDData.length > 0) {
-            const sum = chitietHDData.reduce((acc, item) => acc + (item.SoLuong * item.Gia), 0);
-            setTongTien(sum);
-        } else {
-            setTongTien(0);
-        }
-    }, [chitietHDData]);
+    }, [MaBan, loadData])
 
     const handlePrintInvoice = async () => {
         try {
@@ -291,129 +287,143 @@ const Payment = () => {
 
     return (
         <ThemedView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Header Bill Info */}
-                <View style={[styles.billCard, { backgroundColor: cardColor, borderColor }]}>
-                    <View style={styles.billHeader}>
-                        <View>
-                            <ThemedText style={styles.billTableTitle} type="title">{tenBan}</ThemedText>
-                            <ThemedText style={[styles.billSubText, { color: mutedColor }]}>
-                                Giờ đến: {checkInTime ? checkInTime.slice(0, 24) : '...'}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Header Bill Info */}
+                    <View style={[styles.billCard, { backgroundColor: cardColor, borderColor }]}>
+                        <View style={styles.billHeader}>
+                            <View style={{ flex: 1, marginRight: 12 }}>
+                                <ThemedText style={styles.billTableTitle} type="title">{tenBan}</ThemedText>
+                                <ThemedText style={[styles.billSubText, { color: mutedColor }]}>
+                                    Giờ đến: {checkInTime ? checkInTime.slice(0, 24) : '...'}
+                                </ThemedText>
+                            </View>
+                            <View style={[styles.billBadge, { backgroundColor: successBg }]}>
+                                <ThemedText style={{ color: successColor, fontFamily: 'PoppinsBold', fontSize: 12 }}>
+                                    Chờ thanh toán
+                                </ThemedText>
+                            </View>
+                        </View>
+
+                        <View style={[styles.divider, { backgroundColor: borderColor }]} />
+
+                        {/* Order items list */}
+                        <View style={styles.itemsList}>
+                            {chitietHDData.map((item, idx) => {
+                                const details = itemDetailsMap[item.MaMon] || { TenMon: `Món #${item.MaMon}`, DVT: '' };
+                                return (
+                                    <View key={idx} style={styles.itemRow}>
+                                        <ThemedText style={styles.itemName}>
+                                            {details.TenMon} <ThemedText style={{ color: mutedColor, fontSize: 13 }}>x{item.SoLuong}</ThemedText>
+                                        </ThemedText>
+                                        <ThemedText style={styles.itemPrice} type="defaultSemiBold">
+                                            {numeral(item.SoLuong * item.Gia).format('0,0')} đ
+                                        </ThemedText>
+                                    </View>
+                                );
+                            })}
+                        </View>
+
+                        <View style={[styles.divider, { backgroundColor: borderColor }]} />
+
+                        {/* Total Row */}
+                        <View style={styles.totalRow}>
+                            <ThemedText style={styles.totalLabel}>Tổng cần thanh toán:</ThemedText>
+                            <ThemedText style={[styles.totalAmount, { color: primaryColor }]}>
+                                {numeral(tongTien).format('0,0')} VND
                             </ThemedText>
                         </View>
-                        <View style={[styles.billBadge, { backgroundColor: '#EAFAF1' }]}>
-                            <ThemedText style={{ color: '#27AE60', fontFamily: 'PoppinsBold', fontSize: 12 }}>Chờ thanh toán</ThemedText>
-                        </View>
                     </View>
 
-                    <View style={[styles.divider, { backgroundColor: borderColor }]} />
-
-                    {/* Order items list */}
-                    <View style={styles.itemsList}>
-                        {chitietHDData.map((item, idx) => {
-                            const details = itemDetailsMap[item.MaMon] || { TenMon: `Món #${item.MaMon}`, DVT: '' };
-                            return (
-                                <View key={idx} style={styles.itemRow}>
-                                    <ThemedText style={styles.itemName}>
-                                        {details.TenMon} <ThemedText style={{ color: mutedColor, fontSize: 13 }}>x{item.SoLuong}</ThemedText>
-                                    </ThemedText>
-                                    <ThemedText style={styles.itemPrice} type="defaultSemiBold">
-                                        {numeral(item.SoLuong * item.Gia).format('0,0')} đ
-                                    </ThemedText>
-                                </View>
-                            );
-                        })}
-                    </View>
-
-                    <View style={[styles.divider, { backgroundColor: borderColor }]} />
-
-                    {/* Total Row */}
-                    <View style={styles.totalRow}>
-                        <ThemedText style={styles.totalLabel}>Tổng cần thanh toán:</ThemedText>
-                        <ThemedText style={[styles.totalAmount, { color: primaryColor }]}>
-                            {numeral(tongTien).format('0,0')} VND
+                    {/* Customer Payment Section */}
+                    <Card style={[styles.paymentSection, { backgroundColor: cardColor, borderColor }]} variant="elevated">
+                        <ThemedText type="defaultSemiBold" style={{ fontSize: 15, marginBottom: 12 }}>
+                            Tiền khách đưa:
                         </ThemedText>
-                    </View>
-                </View>
 
-                {/* Customer Payment Section */}
-                <Card style={[styles.paymentSection, { backgroundColor: cardColor, borderColor }]} variant="elevated">
-                    <ThemedText type="defaultSemiBold" style={{ fontSize: 15, marginBottom: 12 }}>
-                        Tiền khách đưa:
-                    </ThemedText>
-
-                    <View style={[styles.inputRow, { borderColor }]}>
-                        <TextInput
-                            style={[styles.input, { color: textColor }]}
-                            placeholder="Nhập số tiền..."
-                            placeholderTextColor={mutedColor}
-                            keyboardType="numeric"
-                            value={tienKhachDua}
-                            onChangeText={setTienKhachDua}
-                        />
-                        <ThemedText style={[styles.currencyLabel, { color: mutedColor }]}>VND</ThemedText>
-                    </View>
-
-                    {/* Quick Cash Buttons */}
-                    <View style={styles.quickCashContainer}>
-                        {quickCashOptions.map((opt, idx) => (
-                            <TouchableOpacity
-                                key={idx}
-                                style={[
-                                    styles.quickCashBtn,
-                                    { borderColor },
-                                    tienKhachDua === String(opt.value) && { backgroundColor: primaryColor, borderColor: primaryColor }
-                                ]}
-                                onPress={() => setTienKhachDua(String(opt.value))}
-                            >
-                                <ThemedText
-                                    style={[
-                                        styles.quickCashText,
-                                        tienKhachDua === String(opt.value) && { color: '#fff', fontFamily: 'PoppinsBold' }
-                                    ]}
-                                >
-                                    {opt.label}
-                                </ThemedText>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    {/* Change Refund Row */}
-                    <View style={[styles.changeRefundCard, { backgroundColor: '#EAFAF1', borderColor: '#A9DFBF' }]}>
-                        <ThemedText style={{ color: '#1E8449', fontFamily: 'Poppins', fontSize: 14 }}>Tiền thối lại:</ThemedText>
-                        <ThemedText style={{ color: '#1E8449', fontFamily: 'PoppinsBold', fontSize: 18 }}>
-                            {numeral(tienThoi).format('0,0')} VND
-                        </ThemedText>
-                    </View>
-                </Card>
-
-                {/* Action Buttons */}
-                <View style={styles.buttonContainer}>
-                    <Button
-                        title="In & Hoàn Tất"
-                        type="outline"
-                        icon={
-                            <MaterialIcons
-                                name="print"
-                                size={20}
-                                color={isCashValid ? primaryColor : mutedColor}
+                        <View style={[styles.inputRow, { backgroundColor: inputBg, borderColor }]}>
+                            <TextInput
+                                style={[styles.input, { color: textColor }]}
+                                placeholder="Nhập số tiền..."
+                                placeholderTextColor={mutedColor}
+                                keyboardType="numeric"
+                                value={tienKhachDua}
+                                onChangeText={setTienKhachDua}
                             />
-                        }
-                        onPress={() => handlePayment(true)}
-                        loading={isPaymentLoading}
-                        disabled={isPrintDisabled}
-                        style={{ height: 52, borderRadius: 14 }}
-                    />
+                            <ThemedText style={[styles.currencyLabel, { color: mutedColor }]}>VND</ThemedText>
+                        </View>
 
-                    <Button
-                        title="Xác nhận Thanh toán"
-                        onPress={() => handlePayment(false)}
-                        loading={isPaymentLoading}
-                        disabled={isSubmitDisabled}
-                        style={{ height: 52, borderRadius: 14 }}
-                    />
-                </View>
-            </ScrollView>
+                        {/* Quick Cash Buttons */}
+                        <View style={styles.quickCashContainer}>
+                            {quickCashOptions.map((opt, idx) => {
+                                const isSelected = tienKhachDua === String(opt.value);
+                                return (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        style={[
+                                            styles.quickCashBtn,
+                                            { backgroundColor: secondaryColor, borderColor },
+                                            isSelected && { backgroundColor: primaryColor, borderColor: primaryColor }
+                                        ]}
+                                        onPress={() => setTienKhachDua(String(opt.value))}
+                                    >
+                                        <ThemedText
+                                            style={[
+                                                styles.quickCashText,
+                                                isSelected && { color: '#fff', fontFamily: 'PoppinsBold' }
+                                            ]}
+                                        >
+                                            {opt.label}
+                                        </ThemedText>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
+
+                        {/* Change Refund Row */}
+                        <View style={[styles.changeRefundCard, { backgroundColor: successBg, borderColor: successColor }]}>
+                            <ThemedText style={{ color: successColor, fontFamily: 'Poppins', fontSize: 14 }}>Tiền thối lại:</ThemedText>
+                            <ThemedText style={{ color: successColor, fontFamily: 'PoppinsBold', fontSize: 18 }}>
+                                {numeral(tienThoi).format('0,0')} VND
+                            </ThemedText>
+                        </View>
+                    </Card>
+
+                    {/* Action Buttons */}
+                    <View style={styles.buttonContainer}>
+                        <Button
+                            title="In & Hoàn Tất"
+                            type="outline"
+                            icon={
+                                <MaterialIcons
+                                    name="print"
+                                    size={20}
+                                    color={isCashValid ? primaryColor : mutedColor}
+                                />
+                            }
+                            onPress={() => handlePayment(true)}
+                            loading={isPaymentLoading}
+                            disabled={isPrintDisabled}
+                            style={{ minHeight: 52, borderRadius: 14 }}
+                        />
+
+                        <Button
+                            title="Xác nhận Thanh toán"
+                            onPress={() => handlePayment(false)}
+                            loading={isPaymentLoading}
+                            disabled={isSubmitDisabled}
+                            style={{ minHeight: 52, borderRadius: 14 }}
+                        />
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </ThemedView>
     )
 }
@@ -450,8 +460,9 @@ const styles = StyleSheet.create({
     },
     billBadge: {
         paddingHorizontal: 12,
-        paddingVertical: 4,
+        paddingVertical: 5,
         borderRadius: 12,
+        flexShrink: 0,
     },
     divider: {
         height: 1,
@@ -465,6 +476,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: 10,
     },
     itemName: {
         fontSize: 14,
@@ -478,10 +490,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        gap: 8,
     },
     totalLabel: {
         fontSize: 15,
         fontFamily: 'PoppinsBold',
+        flexShrink: 1,
     },
     totalAmount: {
         fontSize: 18,
@@ -499,17 +513,21 @@ const styles = StyleSheet.create({
         borderWidth: 1.5,
         borderRadius: 12,
         paddingHorizontal: 14,
-        height: 52,
+        minHeight: 52,
         marginBottom: 12,
     },
     input: {
         flex: 1,
+        minHeight: 48,
+        paddingVertical: 8,
         fontSize: 18,
         fontFamily: 'PoppinsBold',
+        textAlignVertical: 'center',
     },
     currencyLabel: {
         fontSize: 14,
         fontFamily: 'PoppinsBold',
+        marginLeft: 8,
     },
     quickCashContainer: {
         flexDirection: 'row',
@@ -519,7 +537,7 @@ const styles = StyleSheet.create({
     },
     quickCashBtn: {
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 7,
         borderRadius: 10,
         borderWidth: 1,
     },
@@ -534,21 +552,9 @@ const styles = StyleSheet.create({
         padding: 14,
         borderRadius: 12,
         borderWidth: 1,
+        gap: 8,
     },
     buttonContainer: {
         gap: 10,
-    },
-    payAndPrintBtn: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-        height: 50,
-        borderRadius: 14,
-        borderWidth: 1.5,
-    },
-    payAndPrintText: {
-        fontSize: 15,
-        fontFamily: 'PoppinsBold',
     },
 })

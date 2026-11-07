@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useThemeColor } from '@/hooks/useThemeColor';
-import { Colors } from '@/theme/Colors';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
@@ -24,6 +23,8 @@ const ChinhSuaAccount = () => {
     const { username, password, displayName, email } = useLocalSearchParams();
     const database = useSQLiteContext()
     const iconColor = useThemeColor({}, 'icon');
+    const mutedColor = useThemeColor({}, 'muted');
+    const borderColor = useThemeColor({}, 'border');
 
     const [uid, setUid] = useState<string | null>(null);
 
@@ -49,8 +50,6 @@ const ChinhSuaAccount = () => {
     const [isShowingEditPassword, setIsShowingEditPassword] = useState(false)
 
     const [isShowingPassword, setIsShowingPassword] = useState(false)
-    const [isShowingNewPassword, setIsShowingNewPassword] = useState(false)
-    const [isShowingNewConfirmedPassword, setIsShowingNewConfirmedPassword] = useState(false)
 
     const [usernameError, setUsernameError] = useState('')
     const [emailError, setEmailError] = useState('')
@@ -258,7 +257,7 @@ const ChinhSuaAccount = () => {
                 setLoading(false);
                 return
             }
-            if (newUsername == username.toString()) {
+            if (newUsername == (username ?? '').toString()) {
                 Alert.alert('Username mới không được trùng với username cũ')
                 setLoading(false)
                 return
@@ -303,7 +302,7 @@ const ChinhSuaAccount = () => {
     const changeDisplayName = async (newDisplayName: string) => {
         if (uid) {
             setLoading(true)
-            if (newDisplayName == displayName.toString()) {
+            if (newDisplayName == (displayName ?? '').toString()) {
                 setDisplayNameError('Tên mới đã trùng với tên cũ!')
                 setLoading(false)
                 return
@@ -351,7 +350,7 @@ const ChinhSuaAccount = () => {
             setLoading(true);
             const q = query(collection(firestore, "taikhoan"), where("email", "==", newEmail));
             const snap = await getDocs(q);
-            if (newEmail === email.toString()) {
+            if (newEmail === (email ?? '').toString()) {
                 setDisplayNameError('Email mới đã trùng với Email cũ!')
                 setLoading(false)
                 return
@@ -388,7 +387,7 @@ const ChinhSuaAccount = () => {
                 setLoading(false)
                 return
             }
-            if (newPassword == password.toString()) {
+            if (newPassword == (password ?? '').toString()) {
                 setPasswordError('Mật khẩu mới không được trùng với mật khẩu cũ')
                 setLoading(false)
                 return
@@ -463,8 +462,6 @@ const ChinhSuaAccount = () => {
             setIsShowingEditPassword(false);
 
             setIsShowingPassword(false);
-            setIsShowingNewPassword(false);
-            setIsShowingNewConfirmedPassword(false);
 
             setNewUsername('')
             setNewDisplayName('')
@@ -488,8 +485,6 @@ const ChinhSuaAccount = () => {
         setIsShowingEditPassword(false);
 
         setIsShowingPassword(false);
-        setIsShowingNewPassword(false);
-        setIsShowingNewConfirmedPassword(false);
 
         setNewUsername('')
         setNewDisplayName('')
@@ -510,8 +505,6 @@ const ChinhSuaAccount = () => {
         setIsShowingEditPassword(false);
 
         setIsShowingPassword(false);
-        setIsShowingNewPassword(false);
-        setIsShowingNewConfirmedPassword(false);
 
         setNewUsername('')
         setNewDisplayName('')
@@ -548,39 +541,54 @@ const ChinhSuaAccount = () => {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
 
                 {step === 'send' && (
-                    <Card style={styles.editForm}>
-                        <ThemedText type="subtitle" style={{ marginBottom: 16, textAlign: 'center' }}> Xác Minh Danh Tính</ThemedText>
-                        <Input
-                            label="Nhập OTP"
-                            value={otp}
-                            onChangeText={setOtp}
-                            keyboardType="numeric"
-                            placeholder="Nhập mã OTP đã nhận"
-                        />
-                        <View style={{ gap: 12, marginTop: 12 }}>
-                            <Button
-                                onPress={resendVerification}
-                                disabled={cooldown > 0}
-                                title={cooldown > 0 ? `Gửi lại sau ${cooldown}s` : `Gửi lại email xác minh`}
-                                type="secondary"
+                    <ScrollView
+                        contentContainerStyle={styles.otpScrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <Card style={styles.otpCard}>
+                            <ThemedText type="subtitle" style={{ marginBottom: 8, textAlign: 'center' }}>
+                                Xác Minh Danh Tính
+                            </ThemedText>
+                            <ThemedText style={{ color: mutedColor, fontSize: 13, textAlign: 'center', marginBottom: 16 }}>
+                                Vui lòng nhập mã OTP đã gửi đến email của bạn để tiếp tục chỉnh sửa tài khoản.
+                            </ThemedText>
+                            <Input
+                                label="Nhập OTP"
+                                value={otp}
+                                onChangeText={setOtp}
+                                keyboardType="numeric"
+                                placeholder="Nhập mã OTP đã nhận"
                             />
-                            <Button
-                                onPress={verifyOtp}
-                                loading={loading}
-                                title="Xác minh OTP"
-                            />
-                        </View>
-                    </Card>
+                            <View style={{ gap: 12, marginTop: 8 }}>
+                                <Button
+                                    onPress={resendVerification}
+                                    disabled={cooldown > 0}
+                                    title={cooldown > 0 ? `Gửi lại sau ${cooldown}s` : `Gửi lại email xác minh`}
+                                    type="secondary"
+                                />
+                                <Button
+                                    onPress={verifyOtp}
+                                    loading={loading}
+                                    title="Xác minh OTP"
+                                />
+                            </View>
+                        </Card>
+                    </ScrollView>
                 )}
 
                 {step === 'verified' && (
-                    <ScrollView showsVerticalScrollIndicator={false}>
+                    <ScrollView
+                        contentContainerStyle={styles.verifiedScrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
                         <ThemedText type="title" style={styles.headerTitle}>Chỉnh sửa tài khoản</ThemedText>
 
                         {/* Username Section */}
                         <Card style={styles.sectionContainer}>
                             <View style={{ marginBottom: 12 }}>
-                                <ThemedText style={styles.label}>Username hiện tại</ThemedText>
+                                <ThemedText style={[styles.label, { color: mutedColor }]}>Username hiện tại</ThemedText>
                                 <ThemedText type="defaultSemiBold">{username}</ThemedText>
                             </View>
 
@@ -601,7 +609,7 @@ const ChinhSuaAccount = () => {
                             )}
 
                             {isShowingEditUsername && (
-                                <View style={styles.editForm}>
+                                <View style={[styles.editForm, { borderTopColor: borderColor }]}>
                                     <Input
                                         label="Username mới"
                                         placeholder="Nhập Username mới"
@@ -618,7 +626,7 @@ const ChinhSuaAccount = () => {
                         {/* Display Name Section */}
                         <Card style={styles.sectionContainer}>
                             <View style={{ marginBottom: 12 }}>
-                                <ThemedText style={styles.label}>Tên hiển thị hiện tại</ThemedText>
+                                <ThemedText style={[styles.label, { color: mutedColor }]}>Tên hiển thị hiện tại</ThemedText>
                                 <ThemedText type="defaultSemiBold">{displayName}</ThemedText>
                             </View>
 
@@ -639,7 +647,7 @@ const ChinhSuaAccount = () => {
                             )}
 
                             {isShowingEditDisplayName && (
-                                <View style={styles.editForm}>
+                                <View style={[styles.editForm, { borderTopColor: borderColor }]}>
                                     <Input
                                         label="Tên hiển thị mới"
                                         placeholder="Nhập Tên hiển thị mới"
@@ -656,7 +664,7 @@ const ChinhSuaAccount = () => {
                         {/* Email Section */}
                         <Card style={styles.sectionContainer}>
                             <View style={{ marginBottom: 12 }}>
-                                <ThemedText style={styles.label}>Email hiện tại</ThemedText>
+                                <ThemedText style={[styles.label, { color: mutedColor }]}>Email hiện tại</ThemedText>
                                 <ThemedText type="defaultSemiBold">{email}</ThemedText>
                             </View>
 
@@ -677,7 +685,7 @@ const ChinhSuaAccount = () => {
                             )}
 
                             {isShowingEditEmail && (
-                                <View style={styles.editForm}>
+                                <View style={[styles.editForm, { borderTopColor: borderColor }]}>
                                     <Input
                                         label="Email mới"
                                         placeholder="Nhập Email mới"
@@ -694,7 +702,7 @@ const ChinhSuaAccount = () => {
                             )}
 
                             {stepVerifyEmail === 'verify' && (
-                                <View style={styles.editForm}>
+                                <View style={[styles.editForm, { borderTopColor: borderColor }]}>
                                     <Input
                                         label="Nhập OTP"
                                         value={otpVerifyEmail}
@@ -721,11 +729,14 @@ const ChinhSuaAccount = () => {
                         {/* Password Section */}
                         <Card style={styles.sectionContainer}>
                             <View style={{ marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <View>
-                                    <ThemedText style={styles.label}>Mật khẩu hiện tại</ThemedText>
+                                <View style={{ flex: 1, marginRight: 12 }}>
+                                    <ThemedText style={[styles.label, { color: mutedColor }]}>Mật khẩu hiện tại</ThemedText>
                                     <ThemedText type="defaultSemiBold">{isShowingPassword ? password : '••••••••'}</ThemedText>
                                 </View>
-                                <TouchableOpacity onPress={() => setIsShowingPassword(!isShowingPassword)}>
+                                <TouchableOpacity
+                                    onPress={() => setIsShowingPassword(!isShowingPassword)}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                >
                                     <MaterialCommunityIcons name={isShowingPassword ? "eye-off" : "eye"} size={22} color={iconColor} />
                                 </TouchableOpacity>
                             </View>
@@ -747,43 +758,29 @@ const ChinhSuaAccount = () => {
                             )}
 
                             {isShowingEditPassword && (
-                                <View style={styles.editForm}>
-                                    {/* Pasword Input with Toggle */}
-                                    <View style={{ marginBottom: 16 }}>
-                                        <ThemedText type="defaultSemiBold" style={{ marginBottom: 8 }}>Mật khẩu mới</ThemedText>
-                                        <View style={styles.passwordContainer}>
-                                            <Input
-                                                style={{ flex: 1, borderWidth: 0, height: '100%', marginBottom: 0 }}
-                                                containerStyle={{ marginBottom: 0 }}
-                                                placeholder="Nhập Mật khẩu mới"
-                                                value={newPassword}
-                                                onChangeText={setNewPassword}
-                                                secureTextEntry={!isShowingNewPassword}
-                                            />
-                                            <TouchableOpacity onPress={() => setIsShowingNewPassword(!isShowingNewPassword)} style={styles.eyeIcon}>
-                                                <MaterialCommunityIcons name={isShowingNewPassword ? "eye" : "eye-off"} size={20} color={iconColor} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
+                                <View style={[styles.editForm, { borderTopColor: borderColor }]}>
+                                    <Input
+                                        label="Mật khẩu mới"
+                                        placeholder="Nhập Mật khẩu mới"
+                                        isPassword
+                                        value={newPassword}
+                                        onChangeText={(val) => {
+                                            setNewPassword(val);
+                                            if (passwordError) setPasswordError('');
+                                        }}
+                                    />
 
-                                    <View style={{ marginBottom: 16 }}>
-                                        <ThemedText type="defaultSemiBold" style={{ marginBottom: 8 }}>Xác nhận Mật khẩu mới</ThemedText>
-                                        <View style={styles.passwordContainer}>
-                                            <Input
-                                                style={{ flex: 1, borderWidth: 0, height: '100%', marginBottom: 0 }}
-                                                containerStyle={{ marginBottom: 0 }}
-                                                placeholder="Xác nhận Mật khẩu mới"
-                                                value={newConfirmedPassword}
-                                                onChangeText={setNewConfirmedPassword}
-                                                secureTextEntry={!isShowingNewConfirmedPassword}
-                                            />
-                                            <TouchableOpacity onPress={() => setIsShowingNewConfirmedPassword(!isShowingNewConfirmedPassword)} style={styles.eyeIcon}>
-                                                <MaterialCommunityIcons name={isShowingNewConfirmedPassword ? "eye" : "eye-off"} size={20} color={iconColor} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-
-                                    {passwordError ? <ThemedText style={{ color: Colors.light.error, marginBottom: 10 }}>{passwordError}</ThemedText> : null}
+                                    <Input
+                                        label="Xác nhận Mật khẩu mới"
+                                        placeholder="Xác nhận Mật khẩu mới"
+                                        isPassword
+                                        value={newConfirmedPassword}
+                                        onChangeText={(val) => {
+                                            setNewConfirmedPassword(val);
+                                            if (passwordError) setPasswordError('');
+                                        }}
+                                        error={passwordError}
+                                    />
 
                                     <Button
                                         title="Xác Nhận"
@@ -812,9 +809,21 @@ export default ChinhSuaAccount;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    otpScrollContent: {
+        flexGrow: 1,
+        padding: 20,
+        justifyContent: 'center',
+    },
+    otpCard: {
+        padding: 24,
+        borderRadius: 20,
+    },
+    verifiedScrollContent: {
         padding: 20,
     },
     headerTitle: {
+        fontSize: 24,
         textAlign: 'center',
         marginBottom: 20,
     },
@@ -822,8 +831,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     label: {
-        fontSize: 14,
-        color: '#666',
+        fontSize: 13,
         marginBottom: 4,
     },
     responsiveButton: {
@@ -833,19 +841,5 @@ const styles = StyleSheet.create({
         marginTop: 16,
         paddingTop: 16,
         borderTopWidth: 1,
-        borderTopColor: '#eee',
     },
-    passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E5E7EB', // Use theme border color
-        borderRadius: 8,
-        height: 48,
-        overflow: 'hidden',
-        backgroundColor: '#fff', // Use theme bg
-    },
-    eyeIcon: {
-        padding: 10,
-    }
 });

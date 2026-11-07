@@ -21,6 +21,14 @@ const ChiTietBan = () => {
     const cardColor = useThemeColor({}, 'card');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
+    const errorColor = useThemeColor({}, 'error');
+    const dangerBg = useThemeColor({}, 'dangerBg');
+    const successColor = useThemeColor({}, 'success');
+    const successBg = useThemeColor({}, 'successBg');
+    const purpleColor = useThemeColor({}, 'purple');
+    const purpleBg = useThemeColor({}, 'purpleBg');
+    const warningColor = useThemeColor({}, 'warning');
+    const warningBg = useThemeColor({}, 'warningBg');
 
     const [chitietHDData, setChiTietHDData] = useState<chitiethdDataType[]>([]);
     const [itemDetailsMap, setItemDetailsMap] = useState<{ [key: number]: { TenMon: string, DVT: string } }>({});
@@ -31,7 +39,10 @@ const ChiTietBan = () => {
     const [isBooking, setIsBooking] = useState(false);
     const [isServing, setIsServing] = useState(false);
     const [gioDen, setGioDen] = useState(new Date().toString());
-    const [totalAmount, setTotalAmount] = useState(0);
+    const totalAmount = React.useMemo(
+        () => chitietHDData.reduce((acc, item) => acc + item.SoLuong * item.Gia, 0),
+        [chitietHDData],
+    );
     const database = useSQLiteContext();
     const [uid, setUid] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -46,27 +57,7 @@ const ChiTietBan = () => {
         loadUid();
     }, []);
 
-    const loadData = async () => {
-        const result = await database.getFirstAsync<{ TenBan: string; TrangThai: string }>(
-            "SELECT TenBan, TrangThai FROM ban WHERE MaBan = ?;", [parseInt(MaBan as string)]
-        );
-        if (result) {
-            setTenBan(result.TenBan);
-            setTrangThai(result.TrangThai);
-            if (result.TrangThai === 'Đã Đặt Trước') {
-                setIsBooking(true); setCheckInTime('...');
-            } else if (result.TrangThai === 'Đang Phục Vụ') {
-                const ci = await database.getFirstAsync<{ GioDen: string }>("SELECT GioDen FROM hoadon WHERE MaBan = ? AND TrangThai = 0 ORDER BY MaHoaDon DESC LIMIT 1;", [parseInt(MaBan as string)]);
-                if (ci) setCheckInTime(ci.GioDen);
-                setIsServing(true); setIsBooking(false);
-                await loadChiTietHDData();
-            } else {
-                setIsServing(false); setCheckInTime('...');
-            }
-        }
-    };
-
-    const loadChiTietHDData = async () => {
+    const loadChiTietHDData = useCallback(async () => {
         const maHD = await database.getFirstAsync<{ MaHoaDon: string }>("SELECT MaHoaDon FROM hoadon WHERE MaBan = ? AND TrangThai = 0 ORDER BY MaHoaDon DESC LIMIT 1;", [parseInt(MaBan as string)]);
         if (maHD) {
             const data = await database.getAllAsync<chitiethdDataType>("SELECT * FROM chitiethd WHERE MaHoaDon = ?", [maHD.MaHoaDon]);
@@ -85,7 +76,27 @@ const ChiTietBan = () => {
             setMaHoaDonBanData('');
             setItemDetailsMap({});
         }
-    };
+    }, [MaBan, database]);
+
+    const loadData = useCallback(async () => {
+        const result = await database.getFirstAsync<{ TenBan: string; TrangThai: string }>(
+            "SELECT TenBan, TrangThai FROM ban WHERE MaBan = ?;", [parseInt(MaBan as string)]
+        );
+        if (result) {
+            setTenBan(result.TenBan);
+            setTrangThai(result.TrangThai);
+            if (result.TrangThai === 'Đã Đặt Trước') {
+                setIsBooking(true); setIsServing(false); setCheckInTime('...');
+            } else if (result.TrangThai === 'Đang Phục Vụ') {
+                const ci = await database.getFirstAsync<{ GioDen: string }>("SELECT GioDen FROM hoadon WHERE MaBan = ? AND TrangThai = 0 ORDER BY MaHoaDon DESC LIMIT 1;", [parseInt(MaBan as string)]);
+                if (ci) setCheckInTime(ci.GioDen);
+                setIsServing(true); setIsBooking(false);
+                await loadChiTietHDData();
+            } else {
+                setIsBooking(false); setIsServing(false); setCheckInTime('...');
+            }
+        }
+    }, [MaBan, database, loadChiTietHDData]);
 
     const handleGoiMon = async () => {
         try {
@@ -192,12 +203,12 @@ const ChiTietBan = () => {
         ]);
     };
 
-    useEffect(() => { if (MaBan) loadData(); }, [MaBan]);
     useEffect(() => {
-        const sum = chitietHDData.reduce((acc, item) => acc + (item.SoLuong * item.Gia), 0);
-        setTotalAmount(sum);
-    }, [chitietHDData]);
-    useFocusEffect(useCallback(() => { loadData(); }, []));
+        if (MaBan) {
+            Promise.resolve().then(() => loadData());
+        }
+    }, [MaBan, loadData]);
+    useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
     if (loading || uid === null) {
         return (
@@ -207,20 +218,19 @@ const ChiTietBan = () => {
         );
     }
 
-    const getStatusStyle = () => {
-        if (trangThai === 'Đang Phục Vụ') return { bg: '#FDEDEC', text: '#C0392B', dot: '#E74C3C' };
-        if (trangThai === 'Đã Đặt Trước') return { bg: '#F5EEF8', text: '#7D3C98', dot: '#9B59B6' };
-        return { bg: '#EBF5FB', text: '#1A5276', dot: '#3498DB' };
+    const getStatusDotColor = () => {
+        if (trangThai === 'Đang Phục Vụ') return '#FCA5A5';
+        if (trangThai === 'Đã Đặt Trước') return '#E9D5FF';
+        return '#93C5FD';
     };
-    const ss = getStatusStyle();
 
     return (
         <ThemedView style={styles.container}>
             {/* Table Info Header Card */}
             <View style={[styles.headerCard, { backgroundColor: primaryColor }]}>
                 <ThemedText style={styles.headerTableName}>{tenBan}</ThemedText>
-                <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                    <View style={[styles.statusDot, { backgroundColor: ss.dot }]} />
+                <View style={[styles.statusBadge, { backgroundColor: 'rgba(255,255,255,0.22)' }]}>
+                    <View style={[styles.statusDot, { backgroundColor: getStatusDotColor() }]} />
                     <ThemedText style={styles.statusText}>{trangThai}</ThemedText>
                 </View>
                 {checkInTime !== '...' && checkInTime ? (
@@ -233,24 +243,24 @@ const ChiTietBan = () => {
             {/* Action Buttons */}
             <View style={styles.actionsContainer}>
                 {isBooking ? (
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#FDEDEC', borderColor: '#E74C3C' }]} onPress={handleCancelBooking}>
-                        <MaterialIcons name="cancel" size={20} color="#E74C3C" />
-                        <ThemedText style={[styles.actionBtnText, { color: '#E74C3C' }]}>Hủy Đặt Bàn</ThemedText>
+                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: dangerBg, borderColor: errorColor }]} onPress={handleCancelBooking}>
+                        <MaterialIcons name="cancel" size={20} color={errorColor} />
+                        <ThemedText style={[styles.actionBtnText, { color: errorColor }]}>Hủy Đặt Bàn</ThemedText>
                     </TouchableOpacity>
                 ) : isServing ? (
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#EAFAF1', borderColor: '#27AE60' }]} onPress={() => router.push(`/payment?MaBan=${MaBan}`)}>
-                        <MaterialIcons name="payments" size={20} color="#27AE60" />
-                        <ThemedText style={[styles.actionBtnText, { color: '#27AE60' }]}>Thanh Toán</ThemedText>
+                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: successBg, borderColor: successColor }]} onPress={() => router.push(`/payment?MaBan=${MaBan}`)}>
+                        <MaterialIcons name="payments" size={20} color={successColor} />
+                        <ThemedText style={[styles.actionBtnText, { color: successColor }]}>Thanh Toán</ThemedText>
                     </TouchableOpacity>
                 ) : (
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#F5EEF8', borderColor: '#9B59B6' }]} onPress={handleBooking}>
-                        <MaterialIcons name="event-seat" size={20} color="#9B59B6" />
-                        <ThemedText style={[styles.actionBtnText, { color: '#9B59B6' }]}>Đặt Bàn</ThemedText>
+                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: purpleBg, borderColor: purpleColor }]} onPress={handleBooking}>
+                        <MaterialIcons name="event-seat" size={20} color={purpleColor} />
+                        <ThemedText style={[styles.actionBtnText, { color: purpleColor }]}>Đặt Bàn</ThemedText>
                     </TouchableOpacity>
                 )}
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#FEF9E7', borderColor: '#F39C12' }]} onPress={handleGoiMon}>
-                    <MaterialIcons name="restaurant-menu" size={20} color="#F39C12" />
-                    <ThemedText style={[styles.actionBtnText, { color: '#D68910' }]}>Gọi Món</ThemedText>
+                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: warningBg, borderColor: warningColor }]} onPress={handleGoiMon}>
+                    <MaterialIcons name="restaurant-menu" size={20} color={warningColor} />
+                    <ThemedText style={[styles.actionBtnText, { color: warningColor }]}>Gọi Món</ThemedText>
                 </TouchableOpacity>
             </View>
 
@@ -269,24 +279,24 @@ const ChiTietBan = () => {
                                     <ThemedText style={styles.orderItemName} type="defaultSemiBold">{details.TenMon}</ThemedText>
                                     <View style={styles.orderActions}>
                                         <TouchableOpacity style={styles.iconBtn} onPress={() => handleDeleteMon(`${item.MaHoaDon}`, `${item.MaMon}`)}>
-                                            <MaterialIcons name="remove-circle-outline" size={22} color="#E74C3C" />
+                                            <MaterialIcons name="remove-circle-outline" size={22} color={errorColor} />
                                         </TouchableOpacity>
                                         <TouchableOpacity style={styles.iconBtn} onPress={() => handlePayment(`${item.SoLuong * item.Gia}`, `${item.MaMon}`, `${item.MaHoaDon}`, `${item.SoLuong}`, `${item.Gia}`)}>
-                                            <MaterialIcons name="payments" size={22} color="#27AE60" />
+                                            <MaterialIcons name="payments" size={22} color={successColor} />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                                 <View style={styles.orderCardBottom}>
-                                    <ThemedText style={[styles.orderPrice, { color: mutedColor }]}>
+                                    <ThemedText style={[styles.orderPrice, { color: mutedColor }]} numberOfLines={1}>
                                         {numeral(item.Gia).format('0,0')} đ / {details.DVT}
                                     </ThemedText>
                                     <View style={styles.qtyControl}>
-                                        <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: '#F5EEF8' }]} onPress={() => handleMinusAjustQuantity(`${item.MaHoaDon}`, `${item.MaMon}`)}>
-                                            <AntDesign name="minus" size={14} color="#9B59B6" />
+                                        <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: purpleBg }]} onPress={() => handleMinusAjustQuantity(`${item.MaHoaDon}`, `${item.MaMon}`)}>
+                                            <AntDesign name="minus" size={14} color={purpleColor} />
                                         </TouchableOpacity>
                                         <ThemedText style={styles.qtyNum}>{item.SoLuong}</ThemedText>
-                                        <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: '#EAFAF1' }]} onPress={() => handlePlusAjustQuantity(`${item.MaHoaDon}`, `${item.MaMon}`)}>
-                                            <AntDesign name="plus" size={14} color="#27AE60" />
+                                        <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: successBg }]} onPress={() => handlePlusAjustQuantity(`${item.MaHoaDon}`, `${item.MaMon}`)}>
+                                            <AntDesign name="plus" size={14} color={successColor} />
                                         </TouchableOpacity>
                                     </View>
                                     <ThemedText style={styles.orderSubtotal} type="defaultSemiBold">
@@ -321,9 +331,10 @@ const styles = StyleSheet.create({
     },
     headerTableName: {
         color: '#fff',
-        fontSize: 26,
+        fontSize: 24,
         fontFamily: 'PoppinsBold',
         marginBottom: 10,
+        textAlign: 'center',
     },
     statusBadge: {
         flexDirection: 'row',
@@ -336,7 +347,7 @@ const styles = StyleSheet.create({
     },
     statusDot: { width: 10, height: 10, borderRadius: 5 },
     statusText: { color: '#fff', fontFamily: 'PoppinsBold', fontSize: 14 },
-    checkInText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontFamily: 'Poppins', marginTop: 4 },
+    checkInText: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontFamily: 'Poppins', marginTop: 4 },
     actionsContainer: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginVertical: 16 },
     actionBtn: {
         flex: 1,
@@ -345,11 +356,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 8,
         paddingVertical: 14,
+        paddingHorizontal: 10,
         borderRadius: 14,
         borderWidth: 1.5,
     },
     actionBtnText: { fontFamily: 'PoppinsBold', fontSize: 14 },
-    listContent: { paddingHorizontal: 20, paddingBottom: 20 },
+    listContent: { paddingHorizontal: 20, paddingBottom: 24 },
     orderCard: {
         borderRadius: 16,
         borderWidth: 1,
@@ -363,21 +375,22 @@ const styles = StyleSheet.create({
         padding: 14,
         paddingBottom: 8,
     },
-    orderItemName: { flex: 1, fontSize: 15, fontFamily: 'PoppinsBold' },
+    orderItemName: { flex: 1, marginRight: 8, fontSize: 15, fontFamily: 'PoppinsBold' },
     orderActions: { flexDirection: 'row', gap: 8 },
     iconBtn: { padding: 4 },
     orderCardBottom: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: 8,
         paddingHorizontal: 14,
         paddingBottom: 12,
     },
     orderPrice: { fontSize: 12, fontFamily: 'Poppins', flex: 1 },
     qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    qtyBtn: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-    qtyNum: { fontSize: 16, fontFamily: 'PoppinsBold', minWidth: 24, textAlign: 'center' },
-    orderSubtotal: { fontSize: 14, fontFamily: 'PoppinsBold' },
+    qtyBtn: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    qtyNum: { fontSize: 15, fontFamily: 'PoppinsBold', minWidth: 24, textAlign: 'center' },
+    orderSubtotal: { fontSize: 14, fontFamily: 'PoppinsBold', minWidth: 82, textAlign: 'right' },
     totalBar: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -388,5 +401,5 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     totalLabel: { color: '#fff', fontSize: 16, fontFamily: 'PoppinsBold' },
-    totalAmount: { color: '#fff', fontSize: 20, fontFamily: 'PoppinsBold' },
+    totalAmount: { color: '#fff', fontSize: 18, fontFamily: 'PoppinsBold' },
 });

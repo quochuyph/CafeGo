@@ -7,12 +7,12 @@ import Entypo from '@expo/vector-icons/Entypo';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '@react-navigation/native';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { collection, deleteDoc, getDocs, query, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { firestore } from '@/config/firebase';
 const numeral = require('numeral');
 
@@ -20,13 +20,20 @@ type menuType = { MaMon: number, TenMon: string, MaLoai: number, DonGia: number,
 type nhomMonType = { MaLoai: number, TenLoai: string, MauSac: string }
 
 const Menu = () => {
-    const { colors } = useTheme()
+    const insets = useSafeAreaInsets();
     const primaryColor = useThemeColor({}, 'primary');
+    const secondaryColor = useThemeColor({}, 'secondary');
     const textColor = useThemeColor({}, 'text');
     const iconColor = useThemeColor({}, 'icon');
     const cardColor = useThemeColor({}, 'card');
+    const inputBg = useThemeColor({}, 'inputBackground');
     const borderColor = useThemeColor({}, 'border');
     const mutedColor = useThemeColor({}, 'muted');
+    const warningBg = useThemeColor({}, 'warningBg');
+    const infoColor = useThemeColor({}, 'info');
+    const infoBg = useThemeColor({}, 'infoBg');
+    const errorColor = useThemeColor({}, 'error');
+    const dangerBg = useThemeColor({}, 'dangerBg');
 
     const [showActionSheet, setShowActionSheet] = useState(false)
     const [menuData, setMenuData] = useState<menuType[]>([])
@@ -36,6 +43,13 @@ const Menu = () => {
     const database = useSQLiteContext()
     const [uid, setUid] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+
+    const loadData = useCallback(async (storedUid: string) => {
+        const result = await database.getAllAsync<menuType>("SELECT * FROM menu WHERE userId = ?;", [storedUid])
+        const nhom = await database.getAllAsync<nhomMonType>("SELECT * FROM nhommon WHERE userId = ?;", [storedUid])
+        setMenuData(result)
+        setNhomData(nhom)
+    }, [database])
 
     useEffect(() => {
         const loadUid = async () => {
@@ -49,14 +63,7 @@ const Menu = () => {
             }
         };
         loadUid();
-    }, []);
-
-    const loadData = async (storedUid: string) => {
-        const result = await database.getAllAsync<menuType>("SELECT * FROM menu WHERE userId = ?;", [storedUid])
-        const nhom = await database.getAllAsync<nhomMonType>("SELECT * FROM nhommon WHERE userId = ?;", [storedUid])
-        setMenuData(result)
-        setNhomData(nhom)
-    }
+    }, [loadData]);
 
     // Group menu theo nhóm
     const groupedData = React.useMemo(() => {
@@ -119,7 +126,7 @@ const Menu = () => {
                 }
             };
             checkUid();
-        }, [])
+        }, [loadData])
     )
 
     if (loading || uid === null) {
@@ -129,8 +136,6 @@ const Menu = () => {
             </ThemedView>
         )
     }
-
-    const totalMenuItems = menuData.length;
 
     return (
         <ThemedView style={styles.container}>
@@ -147,7 +152,7 @@ const Menu = () => {
             {/* Action Sheet Modal */}
             <Modal visible={showActionSheet} transparent animationType="fade">
                 <TouchableOpacity style={styles.actionSheetOverlay} activeOpacity={1} onPress={() => setShowActionSheet(false)}>
-                    <View style={[styles.actionSheet, { backgroundColor: cardColor }]}>
+                    <View style={[styles.actionSheet, { backgroundColor: cardColor, paddingBottom: Math.max(insets.bottom + 16, 28) }]}>
                         <ThemedText style={styles.actionSheetTitle}>Quản lý Menu</ThemedText>
                         <TouchableOpacity style={styles.actionItem} onPress={() => { setShowActionSheet(false); router.push('/themmon'); }}>
                             <AntDesign name="plus" size={20} color={primaryColor} />
@@ -163,7 +168,7 @@ const Menu = () => {
             </Modal>
 
             {/* Search Bar */}
-            <View style={[styles.searchContainer, { backgroundColor: cardColor, borderColor }]}>
+            <View style={[styles.searchContainer, { backgroundColor: inputBg, borderColor }]}>
                 <AntDesign name="search" size={18} color={mutedColor} style={{ marginRight: 8 }} />
                 <TextInput
                     style={[styles.searchInput, { color: textColor }]}
@@ -192,7 +197,7 @@ const Menu = () => {
                                 <ThemedText type='subtitle' style={styles.groupTitle}>
                                     {group.TenLoai}
                                 </ThemedText>
-                                <View style={[styles.countBadge, { backgroundColor: '#F5EDE6' }]}>
+                                <View style={[styles.countBadge, { backgroundColor: secondaryColor }]}>
                                     <ThemedText style={[styles.countText, { color: primaryColor }]}>{group.items.length} món</ThemedText>
                                 </View>
                             </View>
@@ -206,7 +211,7 @@ const Menu = () => {
                                 group.items.map(item => (
                                     <Card key={item.MaMon} style={[styles.card, { backgroundColor: cardColor, borderColor }]} variant="elevated">
                                         <View style={styles.cardLeft}>
-                                            <View style={[styles.itemIconCircle, { backgroundColor: '#FEF9E7' }]}>
+                                            <View style={[styles.itemIconCircle, { backgroundColor: warningBg }]}>
                                                 <ThemedText style={{ fontSize: 20 }}>☕</ThemedText>
                                             </View>
                                             <View style={styles.cardContent}>
@@ -219,16 +224,16 @@ const Menu = () => {
 
                                         <View style={styles.cardFeatures}>
                                             <TouchableOpacity
-                                                style={[styles.actionBtn, { backgroundColor: '#EBF5FB' }]}
+                                                style={[styles.actionBtn, { backgroundColor: infoBg }]}
                                                 onPress={() => router.push({ pathname: '/themmon', params: { MaMon: item.MaMon } })}
                                             >
-                                                <Entypo name="edit" size={16} color="#3498DB" />
+                                                <Entypo name="edit" size={16} color={infoColor} />
                                             </TouchableOpacity>
                                             <TouchableOpacity
-                                                style={[styles.actionBtn, { backgroundColor: '#FDEDEC' }]}
+                                                style={[styles.actionBtn, { backgroundColor: dangerBg }]}
                                                 onPress={() => handleDelete(`${item.MaMon}`)}
                                             >
-                                                <Entypo name="trash" size={16} color="#E74C3C" />
+                                                <Entypo name="trash" size={16} color={errorColor} />
                                             </TouchableOpacity>
                                         </View>
                                     </Card>
@@ -249,7 +254,10 @@ const Menu = () => {
             />
 
             {/* Floating Action Button */}
-            <TouchableOpacity style={[styles.fab, { backgroundColor: primaryColor }]} onPress={() => router.push('/themmon')}>
+            <TouchableOpacity
+                style={[styles.fab, { backgroundColor: primaryColor, bottom: Math.max(insets.bottom + 16, 24) }]}
+                onPress={() => router.push('/themmon')}
+            >
                 <AntDesign name="plus" size={24} color="#fff" />
             </TouchableOpacity>
         </ThemedView>
@@ -304,7 +312,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginHorizontal: 20,
         paddingHorizontal: 14,
-        height: 48,
+        minHeight: 48,
         borderRadius: 14,
         borderWidth: 1,
         marginTop: 16,
@@ -312,12 +320,15 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
+        minHeight: 46,
+        paddingVertical: 8,
         fontSize: 15,
         fontFamily: 'Poppins',
+        textAlignVertical: 'center',
     },
     listContainer: {
         paddingHorizontal: 20,
-        paddingBottom: 80,
+        paddingBottom: 88,
     },
     groupSection: {
         marginBottom: 20,
@@ -330,6 +341,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     groupTitle: {
+        flex: 1,
+        marginRight: 8,
         fontSize: 16,
         fontFamily: 'PoppinsBold',
     },
@@ -370,6 +383,7 @@ const styles = StyleSheet.create({
     },
     cardContent: {
         flex: 1,
+        marginRight: 8,
     },
     itemTitle: {
         fontSize: 15,

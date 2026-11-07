@@ -3,28 +3,21 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import { Colors } from "@/theme/Colors";
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import bcrypt from "bcryptjs";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { collection, getDocs, query, updateDoc, where } from "firebase/firestore";
 import React, { useState } from "react";
-import { Alert, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
 import { firestore } from '@/config/firebase';
 
 export default function ConfirmResetScreen() {
     const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
     const router = useRouter();
-    const iconColor = useThemeColor({}, 'icon');
 
     const [email, setEmail] = useState(emailParam ?? "");
     const [newPassword, setNewPassword] = useState("");
     const [confirm, setConfirm] = useState("");
     const [loading, setLoading] = useState(false);
-
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     const [passwordError, setPasswordError] = useState('')
 
@@ -80,59 +73,59 @@ export default function ConfirmResetScreen() {
 
     return (
         <ThemedView style={styles.container}>
-            <Card style={styles.card}>
-                <ThemedText type="title" style={{ textAlign: 'center', marginBottom: 24 }}>Đặt Lại Mật Khẩu</ThemedText>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <Card style={styles.card}>
+                        <ThemedText type="title" style={styles.titleText}>
+                            Đặt Lại Mật Khẩu
+                        </ThemedText>
 
-                <Input
-                    label="Email"
-                    value={email}
-                    placeholder="email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    editable={!!emailParam === false} // Disable if passed via param, or keep editable? usually readonly if confirmed
-                />
-
-                <View style={{ marginBottom: 16 }}>
-                    <ThemedText style={{ marginBottom: 8, fontSize: 14, fontWeight: '500' }}>Mật khẩu mới</ThemedText>
-                    <View style={styles.passwordContainer}>
                         <Input
-                            style={{ flex: 1, borderWidth: 0, height: '100%', marginBottom: 0 }}
-                            containerStyle={{ marginBottom: 0 }}
-                            placeholder="Mật khẩu mới"
-                            secureTextEntry={!showPassword}
-                            value={newPassword}
-                            onChangeText={setNewPassword}
+                            label="Email"
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="example@email.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            editable={!emailParam}
                         />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                            <MaterialCommunityIcons name={showPassword ? 'eye-off' : 'eye'} size={20} color={iconColor} />
-                        </TouchableOpacity>
-                    </View>
-                    {passwordError ? <ThemedText style={{ color: Colors.light.error, fontSize: 12, marginTop: 4 }}>{passwordError}</ThemedText> : null}
-                </View>
 
-                <View style={{ marginBottom: 24 }}>
-                    <ThemedText style={{ marginBottom: 8, fontSize: 14, fontWeight: '500' }}>Xác nhận mật khẩu</ThemedText>
-                    <View style={styles.passwordContainer}>
                         <Input
-                            style={{ flex: 1, borderWidth: 0, height: '100%', marginBottom: 0 }}
-                            containerStyle={{ marginBottom: 0 }}
-                            placeholder="Xác nhận mật khẩu"
-                            secureTextEntry={!showConfirmPassword}
+                            label="Mật khẩu mới"
+                            placeholder="Nhập mật khẩu mới"
+                            isPassword
+                            value={newPassword}
+                            onChangeText={(val) => {
+                                setNewPassword(val);
+                                if (passwordError) setPasswordError('');
+                            }}
+                            error={passwordError}
+                        />
+
+                        <Input
+                            label="Xác nhận mật khẩu"
+                            placeholder="Nhập lại mật khẩu mới"
+                            isPassword
                             value={confirm}
                             onChangeText={setConfirm}
+                            containerStyle={{ marginBottom: 24 }}
                         />
-                        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
-                            <MaterialCommunityIcons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={iconColor} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
 
-                <Button
-                    title="Đổi mật khẩu"
-                    onPress={handleConfirm}
-                    loading={loading}
-                />
-            </Card>
+                        <Button
+                            title="Đổi mật khẩu"
+                            onPress={handleConfirm}
+                            loading={loading}
+                        />
+                    </Card>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </ThemedView>
     );
 }
@@ -140,25 +133,20 @@ export default function ConfirmResetScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        padding: 20,
         justifyContent: 'center',
     },
     card: {
         padding: 24,
-        borderRadius: 16,
+        borderRadius: 20,
     },
-    passwordContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 8,
-        height: 48,
-        overflow: 'hidden',
-        backgroundColor: '#fff',
-    },
-    eyeIcon: {
-        padding: 10,
+    titleText: {
+        fontSize: 24,
+        textAlign: 'center',
+        marginBottom: 20,
     },
 });
 
