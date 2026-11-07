@@ -1,10 +1,13 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -13,7 +16,10 @@ const moment = require('moment');
 
 type hoaDonType = { MaHoaDon: number, GiamGia: number, MaBan: number, GioDen: string, TongTien: number, TrangThai: number, TenBan: string }
 
+const INVOICE_SYNC_COLLECTIONS: ShopCollection[] = ['ban', 'hoadon'];
+
 const QuanLyHoaDon = () => {
+    useOwnerGuard();
     const primaryColor = useThemeColor({}, 'primary');
     const cardColor = useThemeColor({}, 'card');
     const borderColor = useThemeColor({}, 'border');
@@ -31,11 +37,18 @@ const QuanLyHoaDon = () => {
     const database = useSQLiteContext()
 
     const loadData = useCallback(async () => {
+        const ownerId = await getActiveOwnerId();
+        if (ownerId === null) {
+            router.replace('/');
+            return;
+        }
         const result = await database.getAllAsync<hoaDonType & { TenBan: string }>(
             `SELECT hoadon.*, ban.TenBan
             FROM hoadon
             JOIN ban ON hoadon.MaBan = ban.MaBan
-            ORDER BY hoadon.MaHoaDon DESC;`
+            WHERE hoadon.userId = ? AND ban.userId = ?
+            ORDER BY hoadon.MaHoaDon DESC;`,
+            [ownerId, ownerId]
         );
         setHoaDonData(result);
     }, [database])
@@ -87,6 +100,7 @@ const QuanLyHoaDon = () => {
             loadData()
         }, [loadData])
     )
+    useOnShopDataSynced(INVOICE_SYNC_COLLECTIONS, loadData);
 
     return (
         <ThemedView style={styles.container}>

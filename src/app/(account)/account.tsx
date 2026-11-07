@@ -3,6 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { auth } from '@/config/firebase';
+import { getActiveOwnerId, getUserRole, SESSION_KEYS, UserRole } from '@/hooks/auth';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { ThemePreference, useThemePreference } from '@/theme/ThemePreferenceContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -35,6 +36,7 @@ const Account = () => {
     const [isShowingPassword, setIsShowingPassword] = useState(false);
 
     const [uid, setUid] = useState<string | null>(null);
+    const [role, setRole] = useState<UserRole>('owner');
     const [email, setEmail] = useState<string | null>(null);
     const [emailVerified, setEmailVerified] = useState<boolean>(false);
     const [loading, setLoading] = useState(true);
@@ -46,6 +48,7 @@ const Account = () => {
     const loadData = async () => {
         try {
             const storedUid = await AsyncStorage.getItem('userId');
+            const currentRole = await getUserRole();
             const storedEmail = await AsyncStorage.getItem('userEmail');
             const storedVerified = await AsyncStorage.getItem('userEmailVerified');
             const storedUsername = await AsyncStorage.getItem('username');
@@ -53,6 +56,7 @@ const Account = () => {
             const storedPassword = await AsyncStorage.getItem('userPassword');
 
             setUid(storedUid);
+            setRole(currentRole);
             setEmail(storedEmail);
             setEmailVerified(storedVerified ? JSON.parse(storedVerified) : false);
             setUsername(storedUsername);
@@ -88,22 +92,21 @@ const Account = () => {
                     onPress: async () => {
                         await signOut(auth);
 
-                        if (uid) {
+                        // Dữ liệu local được lưu theo activeOwnerId (nhân viên dùng ID chủ quán)
+                        const dataOwnerId = await getActiveOwnerId();
+                        if (dataOwnerId) {
                             try {
-                                await database.runAsync('DELETE FROM ban WHERE userId = ?;', [String(uid)]);
-                                await database.runAsync('DELETE FROM chitiethd WHERE userId = ?;', [String(uid)]);
-                                await database.runAsync('DELETE FROM hoadon WHERE userId = ?;', [String(uid)]);
-                                await database.runAsync('DELETE FROM nhommon WHERE userId = ?;', [String(uid)]);
-                                await database.runAsync('DELETE FROM menu WHERE userId = ?;', [String(uid)]);
+                                await database.runAsync('DELETE FROM ban WHERE userId = ?;', [String(dataOwnerId)]);
+                                await database.runAsync('DELETE FROM chitiethd WHERE userId = ?;', [String(dataOwnerId)]);
+                                await database.runAsync('DELETE FROM hoadon WHERE userId = ?;', [String(dataOwnerId)]);
+                                await database.runAsync('DELETE FROM nhommon WHERE userId = ?;', [String(dataOwnerId)]);
+                                await database.runAsync('DELETE FROM menu WHERE userId = ?;', [String(dataOwnerId)]);
                             } catch (error) {
                                 console.log('Error clearing DB:', error);
                             }
                         }
 
-                        await AsyncStorage.multiRemove([
-                            'userId', 'username', 'displayName', 'userPassword',
-                            'userEmail', 'userEmailVerified', 'step', 'stepExpireAt',
-                        ]);
+                        await AsyncStorage.multiRemove(SESSION_KEYS);
 
                         router.replace('/');
                     },
@@ -122,6 +125,7 @@ const Account = () => {
         );
     }
 
+    const isOwner = role === 'owner';
     const firstLetter = displayName
         ? displayName.charAt(0).toUpperCase()
         : username
@@ -214,34 +218,38 @@ const Account = () => {
                         </ThemedText>
                     </View>
 
-                    <View style={[styles.divider, { backgroundColor: borderColor }]} />
+                    {isOwner ? (
+                        <>
+                            <View style={[styles.divider, { backgroundColor: borderColor }]} />
 
-                    <View style={styles.infoRow}>
-                        <View style={styles.infoRowLeft}>
-                            <MaterialCommunityIcons name="email-outline" size={22} color={primaryColor} />
-                            <ThemedText style={styles.label}>Email</ThemedText>
-                        </View>
-                        <View style={styles.infoRowRight}>
-                            {email ? (
-                                <View style={styles.emailValueRow}>
-                                    <ThemedText style={[styles.value, { fontSize: 13 }]} numberOfLines={1}>
-                                        {email}
-                                    </ThemedText>
-                                    {emailVerified ? (
-                                        <MaterialIcons name="verified" size={16} color={successColor} />
-                                    ) : null}
+                            <View style={styles.infoRow}>
+                                <View style={styles.infoRowLeft}>
+                                    <MaterialCommunityIcons name="email-outline" size={22} color={primaryColor} />
+                                    <ThemedText style={styles.label}>Email</ThemedText>
                                 </View>
-                            ) : (
-                                <TouchableOpacity
-                                    onPress={() => router.push({ pathname: '/EmailVerificationScreen', params: { uid: uid ?? '' } })}
-                                >
-                                    <ThemedText style={{ color: primaryColor, fontFamily: 'PoppinsBold', fontSize: 13 }}>
-                                        + Thêm Email
-                                    </ThemedText>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    </View>
+                                <View style={styles.infoRowRight}>
+                                    {email ? (
+                                        <View style={styles.emailValueRow}>
+                                            <ThemedText style={[styles.value, { fontSize: 13 }]} numberOfLines={1}>
+                                                {email}
+                                            </ThemedText>
+                                            {emailVerified ? (
+                                                <MaterialIcons name="verified" size={16} color={successColor} />
+                                            ) : null}
+                                        </View>
+                                    ) : (
+                                        <TouchableOpacity
+                                            onPress={() => router.push({ pathname: '/EmailVerificationScreen', params: { uid: uid ?? '' } })}
+                                        >
+                                            <ThemedText style={{ color: primaryColor, fontFamily: 'PoppinsBold', fontSize: 13 }}>
+                                                + Thêm Email
+                                            </ThemedText>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            </View>
+                        </>
+                    ) : null}
 
                     <View style={[styles.divider, { backgroundColor: borderColor }]} />
 
@@ -270,25 +278,27 @@ const Account = () => {
 
                 {/* Actions */}
                 <View style={styles.actionSection}>
-                    <TouchableOpacity
-                        style={[styles.editBtn, { borderColor: primaryColor }]}
-                        onPress={() =>
-                            router.push({
-                                pathname: '/chinhsuaaccount',
-                                params: {
-                                    username: username || '',
-                                    password: password || '',
-                                    displayName: displayName || '',
-                                    email: email || '',
-                                },
-                            })
-                        }
-                    >
-                        <MaterialCommunityIcons name="account-edit-outline" size={20} color={primaryColor} />
-                        <ThemedText style={[styles.editBtnText, { color: primaryColor }]}>
-                            Chỉnh sửa thông tin
-                        </ThemedText>
-                    </TouchableOpacity>
+                    {isOwner ? (
+                        <TouchableOpacity
+                            style={[styles.editBtn, { borderColor: primaryColor }]}
+                            onPress={() =>
+                                router.push({
+                                    pathname: '/chinhsuaaccount',
+                                    params: {
+                                        username: username || '',
+                                        password: password || '',
+                                        displayName: displayName || '',
+                                        email: email || '',
+                                    },
+                                })
+                            }
+                        >
+                            <MaterialCommunityIcons name="account-edit-outline" size={20} color={primaryColor} />
+                            <ThemedText style={[styles.editBtnText, { color: primaryColor }]}>
+                                Chỉnh sửa thông tin
+                            </ThemedText>
+                        </TouchableOpacity>
+                    ) : null}
 
                     <Button
                         title="Đăng Xuất"

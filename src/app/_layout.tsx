@@ -178,6 +178,13 @@ function AppNavigator() {
           />
 
           <Stack.Screen
+            name="(management)/quanlynhanvien"
+            options={{
+              title: "Quản Lý Nhân Viên",
+            }}
+          />
+
+          <Stack.Screen
             name="+not-found"
             options={{
               title: "Không Tìm Thấy Trang",

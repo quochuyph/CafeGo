@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
 import * as Print from 'expo-print';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -49,7 +49,7 @@ const Payment = () => {
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setIsInitialLoading(false);
             if (storedUid === null) {

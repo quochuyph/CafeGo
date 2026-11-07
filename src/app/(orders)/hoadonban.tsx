@@ -4,11 +4,12 @@ import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { addDoc, collection, getDocs, query, updateDoc, where } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { firestore } from '@/config/firebase';
 import { router } from 'expo-router';
@@ -18,6 +19,8 @@ type chitiethdDataType = { MaChiTietHD: number, MaHoaDon: number, MaMon: number,
 type hoaDonType = { MaHoaDon: number, GiamGia: number, MaBan: number, GioDen: string, TongTien: number, TrangThai: number }
 type menuType = { MaMon: number, TenMon: string, MaLoai: number, DonGia: number, DVT: string }
 type NhomMon = { MaLoai: number, TenLoai: string }
+
+const ORDER_MENU_SYNC_COLLECTIONS: ShopCollection[] = ['menu', 'nhommon', 'hoadon', 'chitiethd'];
 
 const HoaDonBan = () => {
     const { MaBan } = useLocalSearchParams()
@@ -43,9 +46,11 @@ const HoaDonBan = () => {
     const [menuData, setMenuData] = useState<menuType[]>([])
     const [nhomMonData, setNhomMonData] = useState<NhomMon[]>([])
     const [selectedMaLoai, setSelectedMaLoai] = useState<number | 'all'>('all')
+    const selectedMaLoaiRef = useRef<number | 'all'>('all')
 
     const [filterData, setFilterData] = useState<menuType[]>([])
     const [searchQuery, setSearchQuery] = useState('')
+    const searchQueryRef = useRef('')
 
     const [maHoaDonBan, setMaHoaDonBan] = useState('')
     const [selectedItem, setSelectedItem] = useState<menuType | null>(null)
@@ -76,7 +81,7 @@ const HoaDonBan = () => {
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) {
@@ -88,6 +93,7 @@ const HoaDonBan = () => {
 
     const handleSearch = (query: string) => {
         setSearchQuery(query)
+        searchQueryRef.current = query
         if (query) {
             const newData = menuData.filter((item) => {
                 const itemData = item.TenMon ? item.TenMon.toUpperCase() : ''
@@ -102,13 +108,16 @@ const HoaDonBan = () => {
 
     const handleFilterCategory = async (MaLoai: number | 'all') => {
         setSelectedMaLoai(MaLoai)
+        selectedMaLoaiRef.current = MaLoai
         try {
+            const ownerId = uid ?? (await getActiveOwnerId());
+            if (!ownerId) return;
             if (MaLoai === 'all') {
-                const allMenu = await database.getAllAsync<menuType>("SELECT * FROM menu;")
+                const allMenu = await database.getAllAsync<menuType>("SELECT * FROM menu WHERE userId = ?;", [ownerId])
                 setMenuData(allMenu)
                 setFilterData(allMenu)
             } else {
-                const menuResult = await database.getAllAsync<menuType>("SELECT * FROM menu WHERE MaLoai = ?;", [MaLoai])
+                const menuResult = await database.getAllAsync<menuType>("SELECT * FROM menu WHERE MaLoai = ? AND userId = ?;", [MaLoai, ownerId])
                 setMenuData(menuResult)
                 setFilterData(menuResult)
             }
@@ -200,6 +209,44 @@ const HoaDonBan = () => {
         }
     }
 
+    const refreshLocalData = useCallback(async () => {
+        const ownerId = await getActiveOwnerId();
+        if (!ownerId) return;
+
+        const hoaDonResult = await database.getAllAsync<hoaDonType>("SELECT * FROM hoadon WHERE userId = ?;", [ownerId])
+        setHoaDonData(hoaDonResult)
+
+        const nhomMonResult = await database.getAllAsync<NhomMon>("SELECT * FROM nhommon WHERE userId = ?;", [ownerId])
+        setNhomMonData(nhomMonResult)
+
+        const result = await database.getFirstAsync<{
+            MaHoaDon: string;
+        }>("SELECT MaHoaDon FROM hoadon WHERE MaBan = ? AND TrangThai = 0 AND userId = ?;", [parseInt(MaBan as string), ownerId])
+
+        if (result) {
+            setMaHoaDonBan(result.MaHoaDon)
+            const data = await database.getAllAsync<chitiethdDataType>("SELECT * FROM chitiethd WHERE MaHoaDon = ? AND userId = ?;", [result.MaHoaDon, ownerId])
+            setChiTietHDData(data)
+            setTotalAmount(data.length)
+        } else {
+            setChiTietHDData([])
+            setTotalAmount(0)
+        }
+
+        const currentCategory = selectedMaLoaiRef.current;
+        const loadedMenu = currentCategory === 'all'
+            ? await database.getAllAsync<menuType>("SELECT * FROM menu WHERE userId = ?;", [ownerId])
+            : await database.getAllAsync<menuType>("SELECT * FROM menu WHERE MaLoai = ? AND userId = ?;", [currentCategory, ownerId]);
+        setMenuData(loadedMenu)
+        const currentQuery = searchQueryRef.current;
+        if (currentQuery) {
+            const upper = currentQuery.toUpperCase();
+            setFilterData(loadedMenu.filter(item => (item.TenMon || '').toUpperCase().includes(upper)));
+        } else {
+            setFilterData(loadedMenu)
+        }
+    }, [MaBan, database])
+
     const loadData = useCallback(async () => {
         try {
             await database.runAsync(
@@ -224,27 +271,10 @@ const HoaDonBan = () => {
             console.error("Error updating item:", error)
         }
 
-        const hoaDonResult = await database.getAllAsync<hoaDonType>("SELECT * FROM hoadon;")
-        setHoaDonData(hoaDonResult)
+        await refreshLocalData();
+    }, [MaBan, database, uid, refreshLocalData])
 
-        const nhomMonResult = await database.getAllAsync<NhomMon>("SELECT * FROM nhommon;")
-        setNhomMonData(nhomMonResult)
-
-        const result = await database.getFirstAsync<{
-            MaHoaDon: string;
-        }>("SELECT MaHoaDon FROM hoadon WHERE MaBan = ? AND TrangThai = 0;", [parseInt(MaBan as string)])
-        
-        if (result) {
-            setMaHoaDonBan(result.MaHoaDon)
-            const data = await database.getAllAsync<chitiethdDataType>("SELECT * FROM chitiethd WHERE MaHoaDon = ?;", [result.MaHoaDon])
-            setChiTietHDData(data)
-            setTotalAmount(data.length)
-        }
-
-        const allMenu = await database.getAllAsync<menuType>("SELECT * FROM menu;")
-        setMenuData(allMenu)
-        setFilterData(allMenu)
-    }, [MaBan, database, uid])
+    useOnShopDataSynced(ORDER_MENU_SYNC_COLLECTIONS, refreshLocalData);
 
     useEffect(() => {
         if (MaBan) {

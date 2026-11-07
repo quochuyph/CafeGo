@@ -2,15 +2,17 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Entypo from '@expo/vector-icons/Entypo';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { collection, deleteDoc, getDocs, query, where } from 'firebase/firestore';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { firestore } from '@/config/firebase';
@@ -19,7 +21,10 @@ const numeral = require('numeral');
 type menuType = { MaMon: number, TenMon: string, MaLoai: number, DonGia: number, DVT: string, userId: string }
 type nhomMonType = { MaLoai: number, TenLoai: string, MauSac: string }
 
+const MENU_SYNC_COLLECTIONS: ShopCollection[] = ['menu', 'nhommon'];
+
 const Menu = () => {
+    useOwnerGuard();
     const insets = useSafeAreaInsets();
     const primaryColor = useThemeColor({}, 'primary');
     const secondaryColor = useThemeColor({}, 'secondary');
@@ -43,17 +48,41 @@ const Menu = () => {
     const database = useSQLiteContext()
     const [uid, setUid] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const hasPromptedEmptyCategoryRef = useRef(false);
 
-    const loadData = useCallback(async (storedUid: string) => {
+    const showEmptyCategoryAlert = useCallback(() => {
+        Alert.alert(
+            'Lưu ý',
+            'Hiện chưa có nhóm món nào. Vui lòng nhấn vào biểu tượng dấu 3 chấm (⋮) ở góc trên bên phải → chọn "Quản Lý Nhóm Món" để thêm nhóm món trước khi thêm món!',
+            [{ text: 'Đã hiểu' }],
+        );
+    }, []);
+
+    const handlePressAddDish = () => {
+        setShowActionSheet(false);
+        if (nhomData.length === 0) {
+            showEmptyCategoryAlert();
+            return;
+        }
+        router.push('/themmon');
+    };
+
+    const loadData = useCallback(async (storedUid: string, shouldPromptEmpty = false) => {
         const result = await database.getAllAsync<menuType>("SELECT * FROM menu WHERE userId = ?;", [storedUid])
         const nhom = await database.getAllAsync<nhomMonType>("SELECT * FROM nhommon WHERE userId = ?;", [storedUid])
         setMenuData(result)
         setNhomData(nhom)
-    }, [database])
+        if (shouldPromptEmpty && nhom.length === 0 && !hasPromptedEmptyCategoryRef.current) {
+            hasPromptedEmptyCategoryRef.current = true;
+            showEmptyCategoryAlert();
+        } else if (nhom.length > 0) {
+            hasPromptedEmptyCategoryRef.current = false;
+        }
+    }, [database, showEmptyCategoryAlert])
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) {
@@ -99,11 +128,9 @@ const Menu = () => {
                         );
 
                         const snapshot = await getDocs(q);
-                        snapshot.forEach(async (docSnap) => {
-                            await deleteDoc(docSnap.ref);
-                        });
+                        await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
 
-                        await database.runAsync("DELETE FROM menu WHERE MaMon = ?;", [MaMon])
+                        await database.runAsync("DELETE FROM menu WHERE MaMon = ? AND userId = ?;", [MaMon, uid])
                         await loadData(uid)
                     }
                 }
@@ -113,21 +140,30 @@ const Menu = () => {
         }
     }
 
+    const reloadMenu = useCallback(async () => {
+        const storedUid = await getActiveOwnerId();
+        if (storedUid) {
+            await loadData(storedUid);
+        }
+    }, [loadData]);
+
     useFocusEffect(
         useCallback(() => {
+            hasPromptedEmptyCategoryRef.current = false;
             const checkUid = async () => {
-                const storedUid = await AsyncStorage.getItem("userId");
+                const storedUid = await getActiveOwnerId();
                 setUid(storedUid);
                 setLoading(false);
                 if (storedUid === null) {
                     router.replace('/');
                 } else if (storedUid) {
-                    loadData(storedUid)
+                    loadData(storedUid, true)
                 }
             };
             checkUid();
         }, [loadData])
     )
+    useOnShopDataSynced(MENU_SYNC_COLLECTIONS, reloadMenu);
 
     if (loading || uid === null) {
         return (
@@ -154,7 +190,7 @@ const Menu = () => {
                 <TouchableOpacity style={styles.actionSheetOverlay} activeOpacity={1} onPress={() => setShowActionSheet(false)}>
                     <View style={[styles.actionSheet, { backgroundColor: cardColor, paddingBottom: Math.max(insets.bottom + 16, 28) }]}>
                         <ThemedText style={styles.actionSheetTitle}>Quản lý Menu</ThemedText>
-                        <TouchableOpacity style={styles.actionItem} onPress={() => { setShowActionSheet(false); router.push('/themmon'); }}>
+                        <TouchableOpacity style={styles.actionItem} onPress={handlePressAddDish}>
                             <AntDesign name="plus" size={20} color={primaryColor} />
                             <ThemedText style={[styles.actionText, { color: primaryColor, fontFamily: 'PoppinsBold' }]}>Thêm Món Mới</ThemedText>
                         </TouchableOpacity>
@@ -246,7 +282,7 @@ const Menu = () => {
                     <View style={styles.emptyState}>
                         <ThemedText style={{ fontSize: 40 }}>📋</ThemedText>
                         <ThemedText style={[styles.emptyText, { color: mutedColor }]}>Chưa có thực đơn nào</ThemedText>
-                        <TouchableOpacity style={[styles.addFirstBtn, { backgroundColor: primaryColor }]} onPress={() => router.push('/themmon')}>
+                        <TouchableOpacity style={[styles.addFirstBtn, { backgroundColor: primaryColor }]} onPress={handlePressAddDish}>
                             <ThemedText style={{ color: '#fff', fontFamily: 'PoppinsBold' }}>+ Thêm Món Ngay</ThemedText>
                         </TouchableOpacity>
                     </View>
@@ -256,7 +292,7 @@ const Menu = () => {
             {/* Floating Action Button */}
             <TouchableOpacity
                 style={[styles.fab, { backgroundColor: primaryColor, bottom: Math.max(insets.bottom + 16, 24) }]}
-                onPress={() => router.push('/themmon')}
+                onPress={handlePressAddDish}
             >
                 <AntDesign name="plus" size={24} color="#fff" />
             </TouchableOpacity>

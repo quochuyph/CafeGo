@@ -3,7 +3,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { addDoc, collection, deleteDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
@@ -14,6 +15,8 @@ import { firestore } from '@/config/firebase';
 const numeral = require('numeral');
 
 type chitiethdDataType = { MaChiTietHD: number, MaHoaDon: number, MaMon: number, SoLuong: number, Gia: number }
+
+const TABLE_DETAIL_SYNC_COLLECTIONS: ShopCollection[] = ['ban', 'hoadon', 'chitiethd', 'menu'];
 
 const ChiTietBan = () => {
     const { MaBan } = useLocalSearchParams();
@@ -49,7 +52,7 @@ const ChiTietBan = () => {
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) router.replace('/');
@@ -209,6 +212,7 @@ const ChiTietBan = () => {
         }
     }, [MaBan, loadData]);
     useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+    useOnShopDataSynced(TABLE_DETAIL_SYNC_COLLECTIONS, loadData);
 
     if (loading || uid === null) {
         return (

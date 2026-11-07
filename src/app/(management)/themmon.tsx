@@ -3,20 +3,25 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { addDoc, collection, getDocs, query, updateDoc, where } from "firebase/firestore";
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { firestore } from '@/config/firebase';
 const numeral = require('numeral');
 
 type NhomMon = { MaLoai: number, TenLoai: string, userId: string };
 
+const NHOM_SYNC_COLLECTIONS: ShopCollection[] = ['nhommon'];
+
 const ThemMon = () => {
+    useOwnerGuard();
     const { MaMon } = useLocalSearchParams()
 
     const primaryColor = useThemeColor({}, 'primary');
@@ -41,10 +46,12 @@ const ThemMon = () => {
     const database = useSQLiteContext()
     const [uid, setUid] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const tenMonInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) {
@@ -55,7 +62,9 @@ const ThemMon = () => {
     }, []);
 
     const loadData = useCallback(async () => {
-        const result = await database.getAllAsync<NhomMon>("SELECT * FROM nhommon;")
+        const ownerId = await getActiveOwnerId();
+        if (!ownerId) return;
+        const result = await database.getAllAsync<NhomMon>("SELECT * FROM nhommon WHERE userId = ?;", [ownerId])
         setNhomMonData(result)
     }, [database])
 
@@ -86,13 +95,15 @@ const ThemMon = () => {
             Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ các trường thông tin');
             return;
         }
-        setLoading(true)
+        setSaving(true)
         try {
+            const trimmedTenMon = tenMon.trim();
+            const trimmedDVT = DVT.trim();
             const result = await database.runAsync("INSERT INTO menu (TenMon, MaLoai, DonGia, DVT, userId) VALUES (?, ?, ?, ?, ?);", [
-                tenMon.trim(),
+                trimmedTenMon,
                 maLoai,
                 Number(giaBan),
-                DVT.trim(),
+                trimmedDVT,
                 uid
             ])
 
@@ -100,20 +111,28 @@ const ThemMon = () => {
 
             await addDoc(collection(firestore, "menu"), {
                 MaMon: newMaMon,
-                TenMon: tenMon.trim(),
+                TenMon: trimmedTenMon,
                 MaLoai: Number(maLoai),
                 DonGia: Number(giaBan),
-                DVT: DVT.trim(),
+                DVT: trimmedDVT,
                 userId: uid,
             });
 
-            Alert.alert('Thành công', 'Đã thêm món mới vào thực đơn!', [
-                { text: 'OK', onPress: () => router.back() }
+            setTenMon('');
+            setGiaBan('');
+            setDVT('');
+            Alert.alert('Thành công', `Đã thêm "${trimmedTenMon}" vào thực đơn! Bạn có thể tiếp tục thêm món tiếp theo.`, [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setTimeout(() => tenMonInputRef.current?.focus(), 100);
+                    },
+                },
             ]);
         } catch (error) {
             console.error(error)
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
@@ -128,7 +147,7 @@ const ThemMon = () => {
             Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ các trường thông tin');
             return;
         }
-        setLoading(true)
+        setSaving(true)
         try {
             const q = query(
                 collection(firestore, "menu"),
@@ -158,7 +177,7 @@ const ThemMon = () => {
         } catch (error) {
             console.error("Error updating item:", error)
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
@@ -167,6 +186,7 @@ const ThemMon = () => {
             loadData()
         }, [loadData])
     )
+    useOnShopDataSynced(NHOM_SYNC_COLLECTIONS, loadData);
 
     const toggleModal = () => setModalVisible(!isModalVisible);
 
@@ -210,6 +230,7 @@ const ThemMon = () => {
                                 Tên Món <ThemedText style={{ color: errorColor }}>*</ThemedText>
                             </ThemedText>
                             <TextInput
+                                ref={tenMonInputRef}
                                 style={[styles.input, { color: textColor, backgroundColor: inputBg, borderColor }]}
                                 value={tenMon}
                                 onChangeText={setTenMon}
@@ -309,7 +330,7 @@ const ThemMon = () => {
                         <Button
                             title={editMode ? "Cập Nhật Món" : "Lưu Món Mới"}
                             onPress={editMode ? handleUpdate : handleSave}
-                            loading={loading}
+                            loading={saving}
                             style={styles.submitBtn}
                         />
                     </Card>

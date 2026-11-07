@@ -2,10 +2,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Entypo from '@expo/vector-icons/Entypo';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { collection, deleteDoc, getDocs, query, where } from 'firebase/firestore';
@@ -16,7 +18,10 @@ import { firestore } from '@/config/firebase';
 
 type NhomMon = { MaLoai: number, TenLoai: string, userId: string }
 
+const NHOM_SYNC_COLLECTIONS: ShopCollection[] = ['nhommon'];
+
 const QuanLyNhomMon = () => {
+    useOwnerGuard();
     const insets = useSafeAreaInsets();
     const primaryColor = useThemeColor({}, 'primary');
     const secondaryColor = useThemeColor({}, 'secondary');
@@ -55,7 +60,7 @@ const QuanLyNhomMon = () => {
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) {
@@ -67,10 +72,17 @@ const QuanLyNhomMon = () => {
         loadUid();
     }, [loadData]);
 
+    const reloadNhomMon = useCallback(async () => {
+        const storedUid = await getActiveOwnerId();
+        if (storedUid) {
+            await loadData(storedUid);
+        }
+    }, [loadData]);
+
     useFocusEffect(
         useCallback(() => {
             const checkUid = async () => {
-                const storedUid = await AsyncStorage.getItem("userId");
+                const storedUid = await getActiveOwnerId();
                 setUid(storedUid);
                 setLoading(false);
                 if (storedUid === null) {
@@ -82,6 +94,7 @@ const QuanLyNhomMon = () => {
             checkUid();
         }, [loadData])
     )
+    useOnShopDataSynced(NHOM_SYNC_COLLECTIONS, reloadNhomMon);
 
     const handleSearch = (query: string) => {
         setSearchQuery(query)
@@ -117,11 +130,9 @@ const QuanLyNhomMon = () => {
                         );
 
                         const snapshot = await getDocs(q);
-                        snapshot.forEach(async (docSnap) => {
-                            await deleteDoc(docSnap.ref);
-                        });
+                        await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
 
-                        await database.runAsync("DELETE FROM nhommon WHERE MaLoai = ?;", [MaLoai])
+                        await database.runAsync("DELETE FROM nhommon WHERE MaLoai = ? AND userId = ?;", [MaLoai, uid])
                         await loadData(uid)
                     }
                 }

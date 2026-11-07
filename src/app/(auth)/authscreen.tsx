@@ -160,6 +160,8 @@ export default function LoginScreenTest() {
                 passwordHash: hash,
                 emailVerified: false,
                 email: null,
+                role: 'owner',
+                ownerId: userId,
                 createdAt: new Date(),
             });
 
@@ -194,7 +196,8 @@ export default function LoginScreenTest() {
                 return;
             }
 
-            const userData = snap.docs[0].data();
+            const userDoc = snap.docs[0];
+            const userData = userDoc.data();
             const isMatch = bcrypt.compareSync(password, userData.passwordHash);
             if (!isMatch) {
                 setPasswordError('Sai mật khẩu');
@@ -202,13 +205,21 @@ export default function LoginScreenTest() {
                 return;
             }
 
+            // Tương thích ngược: tài khoản cũ không có role → "owner"
+            const currentUserId = userData.userId || userDoc.id;
+            const currentUserRole = userData.role === 'staff' ? 'staff' : 'owner';
+            // Tài khoản cũ không có ownerId → dùng chính userId của họ
+            const activeOwnerId = userData.ownerId ? userData.ownerId : currentUserId;
+
             await saveUserData(
-                userData.userId,
+                currentUserId,
                 username,
                 userData.displayName,
                 password,
                 userData.email,
-                JSON.stringify(userData.emailVerified),
+                JSON.stringify(Boolean(userData.emailVerified)),
+                currentUserRole,
+                activeOwnerId,
             );
             router.replace('/dashboard');
         } catch (err: any) {

@@ -3,16 +3,18 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { addDoc, collection, getDocs, query, updateDoc, where } from "firebase/firestore";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { firestore } from '@/config/firebase';
 
 const ThemNhomMon = () => {
+    useOwnerGuard();
     const { MaLoai, userId } = useLocalSearchParams()
 
     const primaryColor = useThemeColor({}, 'primary');
@@ -26,14 +28,16 @@ const ThemNhomMon = () => {
 
     const [tenLoai, setTenLoai] = useState('')
     const editMode = Boolean(MaLoai && userId)
+    const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null)
 
     const database = useSQLiteContext()
     const [uid, setUid] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) {
@@ -59,28 +63,35 @@ const ThemNhomMon = () => {
             Alert.alert('Lỗi', 'Vui lòng nhập tên nhóm món');
             return;
         }
-        setLoading(true)
+        setSaving(true)
         try {
+            const trimmedName = tenLoai.trim();
             const result = await database.runAsync(
                 "INSERT INTO nhommon (TenLoai, userId) VALUES (?, ?);",
-                [tenLoai.trim(), uid]
+                [trimmedName, uid]
             );
 
             const maLoai = result.lastInsertRowId;
 
             await addDoc(collection(firestore, "nhommon"), {
                 MaLoai: maLoai,
-                TenLoai: tenLoai.trim(),
+                TenLoai: trimmedName,
                 userId: uid,
             });
 
-            Alert.alert('Thành công', 'Đã thêm nhóm món mới!', [
-                { text: 'OK', onPress: () => router.back() }
+            setTenLoai('');
+            Alert.alert('Thành công', `Đã thêm nhóm món "${trimmedName}"! Bạn có thể tiếp tục thêm nhóm món tiếp theo.`, [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setTimeout(() => inputRef.current?.focus(), 100);
+                    },
+                },
             ]);
         } catch (error) {
             console.error(error)
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
@@ -89,7 +100,7 @@ const ThemNhomMon = () => {
             Alert.alert('Lỗi', 'Vui lòng nhập tên nhóm món');
             return;
         }
-        setLoading(true)
+        setSaving(true)
         try {
             const q = query(
                 collection(firestore, "nhommon"),
@@ -116,7 +127,7 @@ const ThemNhomMon = () => {
         } catch (error) {
             console.error("Error updating item:", error)
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
@@ -153,6 +164,7 @@ const ThemNhomMon = () => {
                                 Tên Loại Món <ThemedText style={{ color: errorColor }}>*</ThemedText>
                             </ThemedText>
                             <TextInput
+                                ref={inputRef}
                                 style={[styles.input, { color: textColor, backgroundColor: inputBg, borderColor }]}
                                 value={tenLoai}
                                 onChangeText={setTenLoai}
@@ -165,7 +177,7 @@ const ThemNhomMon = () => {
                         <Button
                             title={editMode ? "Cập Nhật" : "Lưu Nhóm Món"}
                             onPress={editMode ? handleUpdate : handleSave}
-                            loading={loading}
+                            loading={saving}
                             style={styles.submitBtn}
                         />
                     </Card>

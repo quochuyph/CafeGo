@@ -2,10 +2,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import Entypo from '@expo/vector-icons/Entypo';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { collection, deleteDoc, getDocs, query, where } from 'firebase/firestore';
@@ -16,7 +18,10 @@ import { firestore } from '@/config/firebase';
 
 type ban = { MaBan: number, TenBan: string, TrangThai: string }
 
+const BAN_SYNC_COLLECTIONS: ShopCollection[] = ['ban'];
+
 const QuanLyBan = () => {
+    useOwnerGuard();
     const insets = useSafeAreaInsets();
     const primaryColor = useThemeColor({}, 'primary');
     const secondaryColor = useThemeColor({}, 'secondary');
@@ -42,7 +47,7 @@ const QuanLyBan = () => {
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) {
@@ -53,7 +58,9 @@ const QuanLyBan = () => {
     }, []);
 
     const loadData = useCallback(async () => {
-        const result = await database.getAllAsync<ban>("SELECT * FROM ban;")
+        const ownerId = await getActiveOwnerId();
+        if (!ownerId) return;
+        const result = await database.getAllAsync<ban>("SELECT * FROM ban WHERE userId = ?;", [ownerId])
         setBanData(result)
         if (searchQuery) {
             const newData = result.filter((item) => {
@@ -101,9 +108,7 @@ const QuanLyBan = () => {
                         );
 
                         const snapshot = await getDocs(q);
-                        snapshot.forEach(async (docSnap) => {
-                            await deleteDoc(docSnap.ref);
-                        });
+                        await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
 
                         await database.runAsync("DELETE FROM ban WHERE MaBan = ? AND userId = ?;", [MaBan, uid])
                         await database.runAsync("DELETE FROM hoadon WHERE MaBan = ? AND userId = ?;", [MaBan, uid])
@@ -121,6 +126,7 @@ const QuanLyBan = () => {
             loadData()
         }, [loadData])
     )
+    useOnShopDataSynced(BAN_SYNC_COLLECTIONS, loadData);
 
     if (loading || uid === null) {
         return (

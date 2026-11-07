@@ -2,7 +2,8 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Card } from '@/components/ui/Card';
 import { APP_VERSION } from '@/constants/app';
-import { firestore } from '@/config/firebase';
+import { getActiveOwnerId, getUserRole, UserRole } from '@/hooks/auth';
+import { useShopRealtimeSync } from '@/hooks/useShopRealtimeSync';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { useThemePreference } from '@/theme/ThemePreferenceContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -10,7 +11,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ const Dashboard = () => {
     const purpleBg = useThemeColor({}, 'purpleBg');
 
     const [uid, setUid] = useState<string | null>(null);
+    const [role, setRole] = useState<UserRole>('owner');
     const [displayName, setDisplayName] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -40,8 +41,12 @@ const Dashboard = () => {
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem('userId');
+            const storedUserId = await AsyncStorage.getItem('userId');
+            // Dữ liệu quán được truy vấn theo activeOwnerId (nhân viên dùng ID chủ quán)
+            const storedUid = storedUserId ? await getActiveOwnerId() : null;
+            const currentRole = await getUserRole();
             setUid(storedUid);
+            setRole(currentRole);
             const emailStatusStored = await AsyncStorage.getItem('userEmailVerified');
             const emailStatus = emailStatusStored ? JSON.parse(emailStatusStored) : false;
             setLoading(false);
@@ -49,13 +54,14 @@ const Dashboard = () => {
                 router.replace('/');
                 return;
             }
-            if (emailStatus === false) {
+            // Không nhắc thêm Email đối với nhân viên
+            if (emailStatus === false && currentRole === 'owner') {
                 Alert.alert('Thông báo!', 'Trước khi tiếp tục, vui lòng thêm Email để bảo mật và khôi phục mật khẩu!', [
                     { text: 'Hủy', style: 'cancel' },
                     {
                         text: 'Thêm Email',
                         onPress: () => {
-                            router.push({ pathname: '/EmailVerificationScreen', params: { uid: storedUid } });
+                            router.push({ pathname: '/EmailVerificationScreen', params: { uid: storedUserId } });
                         },
                     },
                 ]);
@@ -64,122 +70,8 @@ const Dashboard = () => {
         loadUid();
     }, []);
 
-    const saveBanToSQLite = async (data: any[]) => {
-        try {
-            const db = database;
-            const targetUid = String(uid || '');
-            for (const item of data) {
-                const uId = String(item.userId || targetUid);
-                if (item.MaBan != null) {
-                    await db.runAsync(`INSERT OR REPLACE INTO ban (MaBan, TenBan, TrangThai, userId) VALUES (?, ?, ?, ?);`, [Number(item.MaBan), String(item.TenBan || ''), String(item.TrangThai || 'Trống'), uId]);
-                } else {
-                    await db.runAsync(`INSERT INTO ban (TenBan, TrangThai, userId) VALUES (?, ?, ?);`, [String(item.TenBan || ''), String(item.TrangThai || 'Trống'), uId]);
-                }
-            }
-            console.log('✅ Ghi dữ liệu Bàn vào SQLite thành công');
-        } catch (error: any) {
-            console.error('❌ Lỗi khi ghi Bàn vào SQLite:', error?.message || error);
-        }
-    };
-
-    const saveChiTietHDToSQLite = async (data: any[]) => {
-        try {
-            const db = database;
-            const targetUid = String(uid || '');
-            for (const item of data) {
-                const uId = String(item.userId || targetUid);
-                if (item.MaChiTietHD != null) {
-                    await db.runAsync(`INSERT OR REPLACE INTO chitiethd (MaChiTietHD, MaHoaDon, MaMon, SoLuong, Gia, userId) VALUES (?,?,?,?,?,?);`, [Number(item.MaChiTietHD), Number(item.MaHoaDon || 0), Number(item.MaMon || 0), Number(item.SoLuong || 0), Number(item.Gia || 0), uId]);
-                } else {
-                    await db.runAsync(`INSERT INTO chitiethd (MaHoaDon, MaMon, SoLuong, Gia, userId) VALUES (?,?,?,?,?);`, [Number(item.MaHoaDon || 0), Number(item.MaMon || 0), Number(item.SoLuong || 0), Number(item.Gia || 0), uId]);
-                }
-            }
-            console.log('✅ Ghi dữ liệu Chi Tiết Hóa Đơn vào SQLite thành công');
-        } catch (error: any) {
-            console.error('❌ Lỗi khi ghi Chi Tiết HD vào SQLite:', error?.message || error);
-        }
-    };
-
-    const saveHoaDonToSQLite = async (data: any[]) => {
-        try {
-            const db = database;
-            const targetUid = String(uid || '');
-            for (const item of data) {
-                const uId = String(item.userId || targetUid);
-                if (item.MaHoaDon != null) {
-                    await db.runAsync(`INSERT OR REPLACE INTO hoadon (MaHoaDon, GiamGia, MaBan, GioDen, TongTien, TrangThai, userId) VALUES (?,?,?,?,?,?,?);`, [Number(item.MaHoaDon), Number(item.GiamGia || 0), Number(item.MaBan || 0), String(item.GioDen || new Date().toISOString()), Number(item.TongTien || 0), Number(item.TrangThai || 0), uId]);
-                } else {
-                    await db.runAsync(`INSERT INTO hoadon (GiamGia, MaBan, GioDen, TongTien, TrangThai, userId) VALUES (?,?,?,?,?,?);`, [Number(item.GiamGia || 0), Number(item.MaBan || 0), String(item.GioDen || new Date().toISOString()), Number(item.TongTien || 0), Number(item.TrangThai || 0), uId]);
-                }
-            }
-            console.log('✅ Ghi dữ liệu Hóa Đơn vào SQLite thành công');
-        } catch (error: any) {
-            console.error('❌ Lỗi khi ghi Hóa Đơn vào SQLite:', error?.message || error);
-        }
-    };
-
-    const saveNhomMonHDToSQLite = async (data: any[]) => {
-        try {
-            const db = database;
-            const targetUid = String(uid || '');
-            for (const item of data) {
-                const uId = String(item.userId || targetUid);
-                if (item.MaLoai != null) {
-                    await db.runAsync(`INSERT OR REPLACE INTO nhommon (MaLoai, TenLoai, userId) VALUES (?, ?, ?);`, [Number(item.MaLoai), String(item.TenLoai || ''), uId]);
-                } else {
-                    await db.runAsync(`INSERT INTO nhommon (TenLoai, userId) VALUES (?, ?);`, [String(item.TenLoai || ''), uId]);
-                }
-            }
-            console.log('✅ Ghi dữ liệu Nhóm Món vào SQLite thành công');
-        } catch (error: any) {
-            console.error('❌ Lỗi khi ghi Nhóm Món vào SQLite:', error?.message || error);
-        }
-    };
-
-    const saveMenuHDToSQLite = async (data: any[]) => {
-        try {
-            const db = database;
-            const targetUid = String(uid || '');
-            for (const item of data) {
-                const uId = String(item.userId || targetUid);
-                if (item.MaMon != null) {
-                    await db.runAsync(`INSERT OR REPLACE INTO menu (MaMon, TenMon, MaLoai, DonGia, DVT, userId) VALUES (?, ?, ?, ?, ?, ?);`, [Number(item.MaMon), String(item.TenMon || ''), Number(item.MaLoai || 0), Number(item.DonGia || 0), String(item.DVT || ''), uId]);
-                } else {
-                    await db.runAsync(`INSERT INTO menu (TenMon, MaLoai, DonGia, DVT, userId) VALUES (?, ?, ?, ?, ?);`, [String(item.TenMon || ''), Number(item.MaLoai || 0), Number(item.DonGia || 0), String(item.DVT || ''), uId]);
-                }
-            }
-            console.log('✅ Ghi dữ liệu Menu vào SQLite thành công');
-        } catch (error: any) {
-            console.error('❌ Lỗi khi ghi Menu vào SQLite:', error?.message || error);
-        }
-    };
-
-    const syncFromFirestore = async () => {
-        try {
-            if (uid === null) {
-                router.replace('/');
-                return;
-            }
-            const [snapshotBan, snapshotChiTietHD, snapshotHoaDon, snapshotNhomMon, snapshotMenu] = await Promise.all([
-                getDocs(query(collection(firestore, 'ban'), where('userId', '==', uid))),
-                getDocs(query(collection(firestore, 'chitiethd'), where('userId', '==', uid))),
-                getDocs(query(collection(firestore, 'hoadon'), where('userId', '==', uid))),
-                getDocs(query(collection(firestore, 'nhommon'), where('userId', '==', uid))),
-                getDocs(query(collection(firestore, 'menu'), where('userId', '==', uid))),
-            ]);
-            await saveBanToSQLite(snapshotBan.docs.map(d => d.data()));
-            await saveChiTietHDToSQLite(snapshotChiTietHD.docs.map(d => d.data()));
-            await saveHoaDonToSQLite(snapshotHoaDon.docs.map(d => d.data()));
-            await saveNhomMonHDToSQLite(snapshotNhomMon.docs.map(d => d.data()));
-            await saveMenuHDToSQLite(snapshotMenu.docs.map(d => d.data()));
-        } catch (error) {
-            console.error('❌ Lỗi khi sync từ Firestore:', error);
-        }
-    };
-
-    useEffect(() => {
-        if (!loading) syncFromFirestore();
-    }, [loading]);
+    // Lắng nghe realtime (onSnapshot) toàn bộ dữ liệu quán theo activeOwnerId
+    useShopRealtimeSync(database, loading ? null : uid);
 
     if (loading) {
         return (
@@ -190,12 +82,16 @@ const Dashboard = () => {
         );
     }
 
-    const menuItems = [
-        { title: 'Sơ Đồ Bàn', icon: require('@assets/dashboard/table.png'), route: '/table' as const, bg: infoBg },
-        { title: 'Quản Lý Menu', icon: require('@assets/dashboard/menu.png'), route: '/menu' as const, bg: warningBg },
-        { title: 'Quản Lý Hóa Đơn', icon: require('@assets/dashboard/bill.png'), route: '/quanlyhoadon' as const, bg: successBg },
-        { title: 'Tài Khoản', icon: require('@assets/dashboard/account.png'), route: '/account' as const, bg: purpleBg },
+    const isOwner = role === 'owner';
+    const allMenuItems = [
+        { title: 'Sơ Đồ Bàn', icon: require('@assets/dashboard/table.png'), route: '/table' as const, bg: infoBg, ownerOnly: false },
+        { title: 'Quản Lý Menu', icon: require('@assets/dashboard/menu.png'), route: '/menu' as const, bg: warningBg, ownerOnly: true },
+        { title: 'Quản Lý Hóa Đơn', icon: require('@assets/dashboard/bill.png'), route: '/quanlyhoadon' as const, bg: successBg, ownerOnly: true },
+        { title: 'Quản Lý Nhân Viên', icon: require('@assets/dashboard/avt.png'), route: '/quanlynhanvien' as const, bg: infoBg, ownerOnly: true },
+        { title: 'Tài Khoản', icon: require('@assets/dashboard/account.png'), route: '/account' as const, bg: purpleBg, ownerOnly: false },
     ];
+    // Nhân viên chỉ thấy chức năng Bán hàng (Sơ đồ bàn) và Tài khoản cá nhân
+    const menuItems = allMenuItems.filter(item => isOwner || !item.ownerOnly);
 
     const cardWidth = (width - 48 - 16) / 2;
     const firstLetter = displayName ? displayName.charAt(0).toUpperCase() : 'C';
@@ -216,10 +112,10 @@ const Dashboard = () => {
                     <View style={styles.greetingBox}>
                         <ThemedText style={styles.welcomeLabel}>Xin chào,</ThemedText>
                         <ThemedText style={styles.welcomeName} numberOfLines={2}>
-                            {displayName || 'Chủ quán'} 👋
+                            {displayName || (isOwner ? 'Chủ quán' : 'Nhân viên')} 👋
                         </ThemedText>
                         <ThemedText style={styles.welcomeSub} numberOfLines={1}>
-                            Quản lý quán của bạn hôm nay
+                            {isOwner ? 'Quản lý quán của bạn hôm nay' : 'Ca làm việc của bạn hôm nay'}
                         </ThemedText>
                     </View>
 

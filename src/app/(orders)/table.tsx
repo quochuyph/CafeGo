@@ -1,17 +1,20 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { getActiveOwnerId, getUserRole } from '@/hooks/auth';
+import { ShopCollection, useOnShopDataSynced } from '@/hooks/useShopRealtimeSync';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Modal, StyleSheet, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type BanType = { MaBan: number, TenBan: string, TrangThai: string }
 
 const COLUMN_COUNT = 3;
+const BAN_SYNC_COLLECTIONS: ShopCollection[] = ['ban'];
 
 const Table = () => {
     const { width } = useWindowDimensions();
@@ -47,16 +50,34 @@ const Table = () => {
     const [banData, setBanData] = useState<BanType[]>([]);
     const [filterData, setFilterData] = useState<BanType[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const searchQueryRef = useRef('');
     const [banTrongAmount, setbanTrongAmount] = useState(0);
     const [banDatTruocAmount, setbanDatTruocAmount] = useState(0);
     const [banDangPhucVuAmount, setbanDangPhucVuAmount] = useState(0);
+    const [isOwner, setIsOwner] = useState(false);
 
     const database = useSQLiteContext();
 
+    useEffect(() => {
+        getUserRole().then(role => setIsOwner(role === 'owner'));
+    }, []);
+
     const loadData = useCallback(async () => {
-        const result = await database.getAllAsync<BanType>("SELECT * FROM ban;");
+        const ownerId = await getActiveOwnerId();
+        if (ownerId === null) {
+            router.replace('/');
+            return;
+        }
+        const result = await database.getAllAsync<BanType>("SELECT * FROM ban WHERE userId = ?;", [ownerId]);
         setBanData(result);
-        setFilterData(result);
+        const currentQuery = searchQueryRef.current;
+        if (currentQuery) {
+            setFilterData(result.filter(item =>
+                (item.TenBan || '').toUpperCase().includes(currentQuery.toUpperCase())
+            ));
+        } else {
+            setFilterData(result);
+        }
         setbanTrongAmount(result.filter(b => b.TrangThai === 'Trống').length);
         setbanDatTruocAmount(result.filter(b => b.TrangThai === 'Đã Đặt Trước').length);
         setbanDangPhucVuAmount(result.filter(b => b.TrangThai === 'Đang Phục Vụ').length);
@@ -64,6 +85,7 @@ const Table = () => {
 
     const handleSearch = (query: string) => {
         setSearchQuery(query);
+        searchQueryRef.current = query;
         if (query) {
             setFilterData(banData.filter(item =>
                 (item.TenBan || '').toUpperCase().includes(query.toUpperCase())
@@ -74,6 +96,7 @@ const Table = () => {
     };
 
     useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+    useOnShopDataSynced(BAN_SYNC_COLLECTIONS, loadData);
 
     const getTableColor = (trangThai: string) => {
         if (trangThai === 'Đang Phục Vụ') {
@@ -121,16 +144,17 @@ const Table = () => {
         <ThemedView style={styles.container}>
             <Stack.Screen
                 options={{
-                    headerRight: () => (
+                    // Nhân viên không có quyền thêm/sửa bàn → ẩn menu tùy chọn
+                    headerRight: isOwner ? () => (
                         <TouchableOpacity style={styles.topBarBtn} onPress={() => setShowActionSheet(true)}>
                             <MaterialCommunityIcons name="dots-vertical" size={24} color={iconColor} />
                         </TouchableOpacity>
-                    )
+                    ) : undefined
                 }}
             />
 
             {/* Action Sheet Modal */}
-            <Modal visible={showActionSheet} transparent animationType="fade">
+            <Modal visible={isOwner && showActionSheet} transparent animationType="fade">
                 <TouchableOpacity style={styles.actionSheetOverlay} activeOpacity={1} onPress={() => setShowActionSheet(false)}>
                     <View style={[styles.actionSheet, { backgroundColor: cardColor, paddingBottom: Math.max(insets.bottom + 16, 28) }]}>
                         <ThemedText style={styles.actionSheetTitle}>Tùy chọn</ThemedText>
@@ -197,9 +221,11 @@ const Table = () => {
                     <View style={styles.emptyState}>
                         <ThemedText style={{ fontSize: 40 }}>🪑</ThemedText>
                         <ThemedText style={[styles.emptyText, { color: mutedColor }]}>Chưa có bàn nào</ThemedText>
-                        <TouchableOpacity style={[styles.addBanBtn, { backgroundColor: primaryColor }]} onPress={() => router.push('/themban')}>
-                            <ThemedText style={styles.addBanBtnText}>+ Thêm Bàn</ThemedText>
-                        </TouchableOpacity>
+                        {isOwner ? (
+                            <TouchableOpacity style={[styles.addBanBtn, { backgroundColor: primaryColor }]} onPress={() => router.push('/themban')}>
+                                <ThemedText style={styles.addBanBtnText}>+ Thêm Bàn</ThemedText>
+                            </TouchableOpacity>
+                        ) : null}
                     </View>
                 }
             />

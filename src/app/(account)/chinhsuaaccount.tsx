@@ -3,6 +3,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { getActiveOwnerId } from '@/hooks/auth';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +22,7 @@ import { env } from '@/config/env';
 const API_URL = env.api.accountOtpUrl;
 
 const ChinhSuaAccount = () => {
+    useOwnerGuard();
     const { username, password, displayName, email } = useLocalSearchParams();
     const database = useSQLiteContext()
     const iconColor = useThemeColor({}, 'icon');
@@ -27,6 +30,8 @@ const ChinhSuaAccount = () => {
     const borderColor = useThemeColor({}, 'border');
 
     const [uid, setUid] = useState<string | null>(null);
+    const paramEmail = Array.isArray(email) ? email[0] : (email ?? '');
+    const [currentEmail, setCurrentEmail] = useState<string>(paramEmail.trim());
 
     const [step, setStep] = useState<"send" | "verified">("send");
     const [otp, setOtp] = useState('');
@@ -59,26 +64,11 @@ const ChinhSuaAccount = () => {
     const isValidUsername = (name: string) => /^[a-z0-9]+$/.test(name)
 
     useEffect(() => {
-        const loadUid = async () => {
-            try {
-                const storedUid = await AsyncStorage.getItem("userId");
-                if (storedUid) {
-                    setUid(storedUid);
-                } else if (storedUid === null) {
-                    router.replace('/');
-                }
-            } catch (error) {
-                console.error("Lỗi lấy uid:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         const loadStep = async () => {
-            const step = await AsyncStorage.getItem("step");
+            const savedStep = await AsyncStorage.getItem("step");
             const expireAtStr = await AsyncStorage.getItem("stepExpireAt");
 
-            if (step === "verified" && expireAtStr) {
+            if (savedStep === "verified" && expireAtStr) {
                 const expireAt = parseInt(expireAtStr, 10);
                 const now = Date.now();
 
@@ -89,35 +79,62 @@ const ChinhSuaAccount = () => {
                     return "send";
                 }
             }
-            return step || "send";
+            return savedStep || "send";
         };
 
-        const sendOtp = async () => {
+        const sendOtp = async (targetUid: string, targetEmail: string) => {
             setLoading(true);
-            const uid = await AsyncStorage.getItem("userId");
             try {
-                await axios.post(`${API_URL}/send-otp`, { uid, email });
+                await axios.post(`${API_URL}/send-otp`, { uid: targetUid, email: targetEmail });
                 Alert.alert("Mã xác minh đã được gửi đến Email của bạn. Trạng thái Xác minh sẽ giữ trong 15 phút.");
                 setStep("send");
-                setCooldown(30)
+                setCooldown(30);
             } catch (err: any) {
                 Alert.alert("Lỗi", err.response?.data?.error || "Gửi OTP thất bại");
             } finally {
-                setLoading(false)
+                setLoading(false);
             }
         };
 
-        loadUid();
-        loadStep().then((value) => {
-            if (value === "verified") {
-                setStep(value)
-            } else if (value === 'send') {
-                sendOtp()
-            } else {
-                setStep("send")
+        const init = async () => {
+            try {
+                const storedUid = await AsyncStorage.getItem("userId");
+                if (storedUid === null) {
+                    setLoading(false);
+                    router.replace('/');
+                    return;
+                }
+                setUid(storedUid);
+
+                const storedEmail = await AsyncStorage.getItem("userEmail");
+                const resolvedEmail = (paramEmail && paramEmail.trim())
+                    ? paramEmail.trim()
+                    : (storedEmail ? storedEmail.trim() : '');
+                setCurrentEmail(resolvedEmail);
+
+                // Tài khoản chưa có Email → cho phép vào thẳng màn hình chỉnh sửa
+                if (!resolvedEmail) {
+                    setStep("verified");
+                    setLoading(false);
+                    return;
+                }
+
+                // Tài khoản đã có Email → kiểm tra phiên xác minh 15 phút hoặc gửi OTP như bình thường
+                const currentStep = await loadStep();
+                if (currentStep === "verified") {
+                    setStep("verified");
+                    setLoading(false);
+                } else {
+                    await sendOtp(storedUid, resolvedEmail);
+                }
+            } catch (error) {
+                console.error("Lỗi khởi tạo chỉnh sửa tài khoản:", error);
+                setLoading(false);
             }
-        })
-    }, []);
+        };
+
+        init();
+    }, [paramEmail]);
 
     useEffect(() => {
         if (cooldown <= 0) return;
@@ -146,7 +163,7 @@ const ChinhSuaAccount = () => {
         setLoading(true);
 
         try {
-            await axios.post(`${API_URL}/send-otp`, { uid, email });
+            await axios.post(`${API_URL}/send-otp`, { uid, email: currentEmail });
             Alert.alert("Mã OTP đã được gửi lại vào Email của bạn.");
         } catch (err: any) {
             console.error(err);
@@ -206,6 +223,7 @@ const ChinhSuaAccount = () => {
     };
 
     const verifyOtpNewEmail = async (newEmail: string) => {
+        const trimmedEmail = newEmail.trim();
         setLoading(true)
         try {
             const res = await axios.post(`${API_URL}/verify-otp`, { uid, otp: otpVerifyEmail });
@@ -222,14 +240,22 @@ const ChinhSuaAccount = () => {
             if (!querySnapshot.empty) {
                 const docRef = querySnapshot.docs[0].ref;
                 await updateDoc(docRef, {
-                    email: newEmail
+                    email: trimmedEmail,
+                    emailVerified: true,
                 });
                 console.log('✅ Email đã được đổi');
                 Alert.alert('✅ Email đã được cập nhật!')
-                await AsyncStorage.setItem('userEmail', newEmail);
+                await AsyncStorage.setItem('userEmail', trimmedEmail);
+                await AsyncStorage.setItem('userEmailVerified', 'true');
+                await startVerifiedStep();
+                setCurrentEmail(trimmedEmail);
+                setIsShowingEditEmail(false);
+                setStepVerifyEmail('send');
+                setOtpVerifyEmail('');
+                setNewEmail('');
                 router.replace({
                     pathname: "/chinhsuaaccount",
-                    params: { username: username, password: password, displayName: displayName, email: newEmail }
+                    params: { username: username, password: password, displayName: displayName, email: trimmedEmail }
                 })
             } else {
                 console.warn("❌ Không tìm thấy dữ liệu cần update trên Firestore");
@@ -347,21 +373,27 @@ const ChinhSuaAccount = () => {
 
     const changeEmail = async (newEmail: string) => {
         if (uid) {
-            setLoading(true);
-            const q = query(collection(firestore, "taikhoan"), where("email", "==", newEmail));
-            const snap = await getDocs(q);
-            if (newEmail === (email ?? '').toString()) {
-                setDisplayNameError('Email mới đã trùng với Email cũ!')
-                setLoading(false)
-                return
+            const trimmedEmail = newEmail.trim();
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+                setEmailError('Email không hợp lệ!');
+                return;
             }
+            if (trimmedEmail === currentEmail) {
+                setEmailError('Email mới đã trùng với Email cũ!');
+                return;
+            }
+            setEmailError('');
+            setLoading(true);
+            const q = query(collection(firestore, "taikhoan"), where("email", "==", trimmedEmail));
+            const snap = await getDocs(q);
             if (!snap.empty) {
                 Alert.alert("❌ Email đã được sử dụng cho tài khoản khác");
                 setLoading(false);
                 return;
             }
             try {
-                await axios.post(`${API_URL}/send-otp`, { uid, email: newEmail });
+                await axios.post(`${API_URL}/send-otp`, { uid, email: trimmedEmail });
                 Alert.alert("Mã xác minh đã được gửi đến Email mới của bạn.");
                 setStepVerifyEmail("verify");
                 setCooldown(30)
@@ -443,11 +475,13 @@ const ChinhSuaAccount = () => {
         try {
             await signOut(auth);
 
-            await database.runAsync("DELETE FROM ban WHERE userId = ?;", [String(uid)])
-            await database.runAsync("DELETE FROM chitiethd WHERE userId = ?;", [String(uid)])
-            await database.runAsync("DELETE FROM hoadon WHERE userId = ?;", [String(uid)])
-            await database.runAsync("DELETE FROM nhommon WHERE userId = ?;", [String(uid)])
-            await database.runAsync("DELETE FROM menu WHERE userId = ?;", [String(uid)])
+            // Dữ liệu local được lưu theo activeOwnerId (nhân viên dùng ID chủ quán)
+            const dataOwnerId = (await getActiveOwnerId()) ?? uid;
+            await database.runAsync("DELETE FROM ban WHERE userId = ?;", [String(dataOwnerId)])
+            await database.runAsync("DELETE FROM chitiethd WHERE userId = ?;", [String(dataOwnerId)])
+            await database.runAsync("DELETE FROM hoadon WHERE userId = ?;", [String(dataOwnerId)])
+            await database.runAsync("DELETE FROM nhommon WHERE userId = ?;", [String(dataOwnerId)])
+            await database.runAsync("DELETE FROM menu WHERE userId = ?;", [String(dataOwnerId)])
 
             await AsyncStorage.removeItem('userId');
             await AsyncStorage.removeItem('username');
@@ -455,6 +489,8 @@ const ChinhSuaAccount = () => {
             await AsyncStorage.removeItem('userPassword');
             await AsyncStorage.removeItem('userEmail');
             await AsyncStorage.removeItem('userEmailVerified');
+            await AsyncStorage.removeItem('userRole');
+            await AsyncStorage.removeItem('activeOwnerId');
 
             setIsShowingEditUsername(false);
             setIsShowingEditDisplayName(false);
@@ -665,12 +701,12 @@ const ChinhSuaAccount = () => {
                         <Card style={styles.sectionContainer}>
                             <View style={{ marginBottom: 12 }}>
                                 <ThemedText style={[styles.label, { color: mutedColor }]}>Email hiện tại</ThemedText>
-                                <ThemedText type="defaultSemiBold">{email}</ThemedText>
+                                <ThemedText type="defaultSemiBold">{currentEmail || 'Chưa thêm Email'}</ThemedText>
                             </View>
 
                             {!isShowingEditEmail ? (
                                 <Button
-                                    title="Chỉnh sửa Email"
+                                    title={currentEmail ? "Chỉnh sửa Email" : "Thêm Email"}
                                     onPress={() => { setIsShowingEditEmail(true); setIsShowingEditPassword(false); setIsShowingEditUsername(false); setIsShowingEditDisplayName(false) }}
                                     type="secondary"
                                     style={styles.responsiveButton}

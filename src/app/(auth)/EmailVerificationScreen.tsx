@@ -11,10 +11,12 @@ import { useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { firestore } from '@/config/firebase';
 import { env } from '@/config/env';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 
 const API_URL = env.api.accountOtpUrl;
 
 export default function EmailVerificationScreen() {
+    useOwnerGuard();
     const { uid } = useLocalSearchParams();
     const router = useRouter();
 

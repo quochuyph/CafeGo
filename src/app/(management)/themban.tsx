@@ -3,16 +3,18 @@ import { ThemedView } from '@/components/ThemedView';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import { useOwnerGuard } from '@/hooks/useOwnerGuard';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getActiveOwnerId } from '@/hooks/auth';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { addDoc, collection, getDocs, query, updateDoc, where } from "firebase/firestore";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { firestore } from '@/config/firebase';
 
 const ThemBan = () => {
+    useOwnerGuard();
     const { MaBan } = useLocalSearchParams()
 
     const primaryColor = useThemeColor({}, 'primary');
@@ -26,14 +28,16 @@ const ThemBan = () => {
 
     const [tenBan, setTenBan] = useState('')
     const editMode = Boolean(MaBan)
+    const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null)
 
     const database = useSQLiteContext()
     const [uid, setUid] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         const loadUid = async () => {
-            const storedUid = await AsyncStorage.getItem("userId");
+            const storedUid = await getActiveOwnerId();
             setUid(storedUid);
             setLoading(false);
             if (storedUid === null) {
@@ -59,10 +63,11 @@ const ThemBan = () => {
             Alert.alert('Lỗi', 'Vui lòng nhập tên bàn');
             return;
         }
-        setLoading(true)
+        setSaving(true)
         try {
+            const trimmedName = tenBan.trim();
             const result = await database.runAsync("INSERT INTO ban (TenBan, TrangThai, userId) VALUES (?, ?, ?);", [
-                tenBan.trim(),
+                trimmedName,
                 'Trống',
                 uid
             ])
@@ -71,18 +76,24 @@ const ThemBan = () => {
 
             await addDoc(collection(firestore, 'ban'), {
                 MaBan: newMaBan,
-                TenBan: tenBan.trim(),
+                TenBan: trimmedName,
                 TrangThai: 'Trống',
                 userId: uid
             })
 
-            Alert.alert('Thành công', 'Đã thêm bàn mới thành công!', [
-                { text: 'OK', onPress: () => router.back() }
+            setTenBan('');
+            Alert.alert('Thành công', `Đã thêm "${trimmedName}"! Bạn có thể tiếp tục thêm bàn tiếp theo.`, [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setTimeout(() => inputRef.current?.focus(), 100);
+                    },
+                },
             ]);
         } catch (error) {
             console.error(error)
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
@@ -91,7 +102,7 @@ const ThemBan = () => {
             Alert.alert('Lỗi', 'Vui lòng nhập tên bàn');
             return;
         }
-        setLoading(true)
+        setSaving(true)
         try {
             const q = query(
                 collection(firestore, "ban"),
@@ -118,7 +129,7 @@ const ThemBan = () => {
         } catch (error) {
             console.error("Error updating item:", error)
         } finally {
-            setLoading(false)
+            setSaving(false)
         }
     }
 
@@ -155,6 +166,7 @@ const ThemBan = () => {
                                 Tên Bàn <ThemedText style={{ color: errorColor }}>*</ThemedText>
                             </ThemedText>
                             <TextInput
+                                ref={inputRef}
                                 style={[styles.input, { color: textColor, backgroundColor: inputBg, borderColor }]}
                                 value={tenBan}
                                 onChangeText={setTenBan}
@@ -167,7 +179,7 @@ const ThemBan = () => {
                         <Button
                             title={editMode ? "Cập Nhật" : "Lưu Bàn"}
                             onPress={editMode ? handleUpdate : handleSave}
-                            loading={loading}
+                            loading={saving}
                             style={styles.submitBtn}
                         />
                     </Card>
